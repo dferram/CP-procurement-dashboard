@@ -1,4 +1,4 @@
-# Colgate-Palmolive: Project Data Visualization Dashboard
+# Colgate-Palmolive: Project Managemetn and Data Visualization Dashboard
 
 ![Google Sheets](https://img.shields.io/badge/Google%20Sheets-34A853?style=for-the-badge&logo=google-sheets&logoColor=white)
 ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?style=for-the-badge&logo=google-drive&logoColor=white)
@@ -7,7 +7,7 @@
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 
-> **IMPORTANT:** This repository and its code are strictly CONFIDENTIAL and part of **Colgate-Palmolive** Procurement Trainee team. Sharing this material with anyone outside the **Procurement Trainee** team or unauthorized stakeholders is strictly prohibited.
+> **This repository and its code are part of _Colgate-Palmolive_ Procurement Trainee team. Use of this material with anyone outside the _Procurement Trainee_ team or unauthorized stakeholders is strictly prohibited.**
 
 ---
 
