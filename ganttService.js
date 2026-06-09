@@ -1,6 +1,7 @@
 /**
  * GanttService.gs
  * Lógica centralizada para gráficos Gantt
+ * Responsabilidad única: Cálculos y renderizado de Gantt charts
  */
 
 const GanttService = {
@@ -25,7 +26,7 @@ const GanttService = {
       case 'yearly':
         return this.generateYearlyColumns(dateRange);
       default:
-        Logger.log('Escala desconocida: ' + scale);
+        Logger.log('⚠️ Escala desconocida: ' + scale);
         return ['Timeline'];
     }
   },
@@ -123,7 +124,7 @@ const GanttService = {
         display: 'block'
       };
     } catch (e) {
-      Logger.log('Error en calculateBarStyle: ' + e);
+      Logger.log('❌ Error en calculateBarStyle: ' + e);
       return { display: 'none' };
     }
   },
@@ -145,11 +146,12 @@ const GanttService = {
       errors.push('Faltan ambas fechas');
     }
 
-    if (item.startDate && !DateUtils.isValidDate(item.startDate)) {
+    // ✅ CORREGIDO: Usar DateService en lugar de DateUtils
+    if (item.startDate && !DateService.isValidDateFormat(item.startDate)) {
       errors.push('Formato fecha inicio inválido: ' + item.startDate);
     }
 
-    if (item.endDate && !DateUtils.isValidDate(item.endDate)) {
+    if (item.endDate && !DateService.isValidDateFormat(item.endDate)) {
       errors.push('Formato fecha fin inválido: ' + item.endDate);
     }
 
