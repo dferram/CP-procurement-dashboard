@@ -23,7 +23,7 @@ class DateService {
       const diffMs = end - start;
       return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
     } catch (e) {
-      Logger.log(`DateService.calculateDays error: ${e.message}`);
+      Logger.log(`❌ DateService.calculateDays error: ${e.message}`);
       return 0;
     }
   }
@@ -92,7 +92,7 @@ class DateService {
         totalDays: totalDays 
       };
     } catch (e) {
-      Logger.log(`DateService.getProjectDateRange error: ${e.message}`);
+      Logger.log(`❌ DateService.getProjectDateRange error: ${e.message}`);
       return this._getDefaultDateRange();
     }
   }
