@@ -485,12 +485,10 @@
                     if (filterStatus.value !== 'ALL') res = res.filter(p => p.cycleStatus === filterStatus.value);
                     if (filterOwner.value !== 'ALL') res = res.filter(p => p.projectOwner === filterOwner.value || (!p.projectOwner && filterOwner.value === 'Unassigned'));
 
-                    // NOTE: date_asc/date_desc use a.id - b.id which is broken for string IDs.
-                    // Fix is tracked in Step 5 of REFACTOR_INDEX.md.
                     res.sort((a, b) => {
                         if (sortBy.value === 'name_asc') return a.title.localeCompare(b.title);
-                        if (sortBy.value === 'date_asc') return a.id - b.id; 
-                        if (sortBy.value === 'date_desc') return b.id - a.id;
+                        if (sortBy.value === 'date_asc') return new Date(a.createdAt) - new Date(b.createdAt);
+                        if (sortBy.value === 'date_desc') return new Date(b.createdAt) - new Date(a.createdAt);
                         if (sortBy.value === 'status') return a.cycleStatus.localeCompare(b.cycleStatus);
                         return 0;
                     });
@@ -575,77 +573,78 @@
                 });
 
                 // ─── GANTT ────────────────────────────────────────────
-                // Scans all stage and task dates to find the earliest and latest.
-                // Adds a 7-day buffer on both ends so bars don't touch the edges.
+                // Shared date parser — always UTC (T00:00:00Z) to match DateService._parseDate on the backend.
+                const ganttParseDate = (str) => {
+                    const d = new Date(str + 'T00:00:00Z');
+                    return isNaN(d.getTime()) ? null : d;
+                };
+
+                // Mirrors DateService.getProjectDateRange — extracts all stage+task dates,
+                // picks min/max, then adds a 7-day buffer on each side.
                 const projectDateRange = computed(() => {
-                    if (!selectedProject.value || !selectedProject.value.stages || selectedProject.value.stages.length === 0) {
-                        return { start: new Date(), end: new Date(new Date().setDate(new Date().getDate() + 30)), totalDays: 30 };
-                    }
-                    
-                    let minDate = null, maxDate = null;
-                    
-                    selectedProject.value.stages.forEach(s => {
-                        if (s.startDate) { let d = new Date(s.startDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                        if (s.endDate) { let d = new Date(s.endDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                        if (s.tasks) s.tasks.forEach(t => {
-                            if (t.startDate) { let d = new Date(t.startDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                            if (t.endDate) { let d = new Date(t.endDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                        });
-                    });
-                    
-                    if (!minDate || !maxDate) {
-                        minDate = new Date();
-                        maxDate = new Date(new Date().setDate(new Date().getDate() + 30));
+                    const stages = selectedProject.value?.stages;
+                    if (!stages || stages.length === 0) {
+                        const today = new Date();
+                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
                     }
 
-                    // Add a visual 7 day buffer before and after
-                    minDate = new Date(minDate.setDate(minDate.getDate() - 7));
-                    maxDate = new Date(maxDate.setDate(maxDate.getDate() + 7));
-                    
-                    const totalDays = Math.max(1, (maxDate - minDate) / (1000 * 60 * 60 * 24));
+                    const timestamps = [];
+                    stages.forEach(s => {
+                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) timestamps.push(d.getTime()); }
+                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) timestamps.push(d.getTime()); }
+                        (s.tasks || []).forEach(t => {
+                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) timestamps.push(d.getTime()); }
+                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) timestamps.push(d.getTime()); }
+                        });
+                    });
+
+                    if (timestamps.length === 0) {
+                        const today = new Date();
+                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
+                    }
+
+                    const BUFFER = 7 * 864e5;
+                    const minDate = new Date(Math.min(...timestamps) - BUFFER);
+                    const maxDate = new Date(Math.max(...timestamps) + BUFFER);
+                    const totalDays = Math.max(1, Math.round((maxDate - minDate) / 864e5));
                     return { start: minDate, end: maxDate, totalDays };
                 });
 
-                // Column headers for the Gantt grid — monthly, weekly, or yearly.
+                // Mirrors GanttService.generateGridColumns — weekly/monthly/yearly column labels.
                 const ganttGridColumns = computed(() => {
-                    const range = projectDateRange.value;
+                    const { start, end, totalDays } = projectDateRange.value;
                     const cols = [];
-                    
-                    if (ganttScale.value === 'monthly') {
-                        let curr = new Date(range.start);
-                        while(curr < range.end) {
-                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
-                            curr.setMonth(curr.getMonth() + 1);
-                        }
-                    } else if (ganttScale.value === 'weekly') {
+                    if (ganttScale.value === 'weekly') {
                         let w = 1;
-                        for(let i = 0; i < range.totalDays; i += 7) cols.push('W' + w++);
-                    } else {
-                        let curr = new Date(range.start);
-                        while(curr.getFullYear() <= range.end.getFullYear()) {
+                        for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
+                    } else if (ganttScale.value === 'yearly') {
+                        let curr = new Date(start);
+                        while (curr.getFullYear() <= end.getFullYear()) {
                             cols.push(curr.getFullYear().toString());
                             curr.setFullYear(curr.getFullYear() + 1);
+                        }
+                    } else {
+                        let curr = new Date(start);
+                        while (curr < end) {
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
+                            curr.setMonth(curr.getMonth() + 1);
                         }
                     }
                     return cols.length > 0 ? cols : ['Timeline'];
                 });
 
-                // Returns left% and width% for a Gantt bar relative to the project date range.
-                // Minimum width of 2% so short tasks are always visible.
+                // Mirrors GanttService.calculateBarStyle — left% and width% relative to the date range.
+                // Min width 2% so single-day tasks are always visible.
                 const getGanttBarStyle = (item) => {
                     if (!item.startDate || !item.endDate) return { display: 'none' };
-                    // Appending T00:00:00 forces parsing as exact local time, avoiding prior-day timezone shifts
-                    const start = new Date(item.startDate + 'T00:00:00');
-                    const end = new Date(item.endDate + 'T00:00:00');
-                    const range = projectDateRange.value; 
-                    
-                    let leftPct = ((start - range.start) / (1000 * 60 * 60 * 24)) / range.totalDays * 100;
-                    let widthPct = ((end - start) / (1000 * 60 * 60 * 24)) / range.totalDays * 100;
-                    
-                    leftPct = Math.max(0, Math.min(100, leftPct));
-                    widthPct = Math.max(2, widthPct); // Minimum 2% width so it's always visible
-
-                    return { left: leftPct + '%', width: widthPct + '%' };
+                    const start = ganttParseDate(item.startDate);
+                    const end   = ganttParseDate(item.endDate);
+                    if (!start || !end) return { display: 'none' };
+                    const range = projectDateRange.value;
+                    const totalMs = range.totalDays * 864e5;
+                    const leftPct  = Math.max(0, Math.min(100, ((start - range.start) / totalMs) * 100));
+                    const widthPct = Math.max(2, ((end - start) / totalMs) * 100);
+                    return { left: leftPct.toFixed(2) + '%', width: widthPct.toFixed(2) + '%' };
                 };
 
 
@@ -743,22 +742,20 @@
                 };
 
                 // ─── DATE HELPERS ─────────────────────────────────────
+                // Mirrors DateService.formatDate — parses as UTC to avoid off-by-one day shifts.
                 const formatDate = (d) => {
                     if(!d) return '--';
-                    // Splitting allows robust rendering ignoring timezone shifts
-                    const parts = d.split('-');
-                    if (parts.length === 3) {
-                        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-                        return dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-                    }
-                    return d;
+                    const dateObj = new Date(d + 'T00:00:00Z');
+                    if (isNaN(dateObj.getTime())) return d;
+                    return dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
                 };
 
+                // Mirrors DateService.calculateDays — UTC to avoid timezone-based day miscounts.
                 const calculateDays = (s, e) => {
                     if (!s || !e) return 0;
-                    const start = new Date(s + 'T00:00:00');
-                    const end = new Date(e + 'T00:00:00');
-                    return Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)));
+                    const start = new Date(s + 'T00:00:00Z');
+                    const end   = new Date(e + 'T00:00:00Z');
+                    return Math.max(0, Math.round((end - start) / 864e5));
                 };
 
                 const addStage = () => {
