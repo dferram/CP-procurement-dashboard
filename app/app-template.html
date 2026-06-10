@@ -762,8 +762,8 @@
         <!-- ========================================== -->
         <!-- UNIVERSAL EDITOR MODAL (PROJECTS & TEMPLATES) -->
         <!-- ========================================== -->
-        <div v-if="viewerOpen" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6 overflow-y-auto">
-            <div class="bg-white w-full max-w-[95vw] min-h-[95vh] rounded-panel shadow-2xl flex flex-col relative my-auto">
+        <div v-if="viewerOpen" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
+            <div class="bg-white w-full max-w-[95vw] h-[95vh] rounded-panel shadow-2xl flex flex-col relative">
                 
                 <!-- Editor Loading Overlay -->
                 <div v-if="isSaving" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-[100] flex items-center justify-center rounded-panel">
@@ -774,7 +774,7 @@
                 </div>
 
                 <!-- Editor Header -->
-                <div class="px-10 py-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-50 rounded-t-panel shrink-0">
+                <div class="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white z-50 rounded-t-panel shrink-0">
                     <div class="flex items-center gap-5">
                         <div :class="['w-12 h-12 text-white rounded-custom flex items-center justify-center shadow-lg cursor-move', editingType === 'project' ? 'bg-[var(--cp-blue)]' : 'bg-indigo-600']">
                             <i :class="['fas', editingType === 'project' ? 'fa-pen-ruler' : 'fa-scroll', 'text-xl']"></i>
