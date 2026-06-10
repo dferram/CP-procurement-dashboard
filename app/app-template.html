@@ -1,26 +1,30 @@
 ﻿    <div id="app" v-cloak>
         <div class="flex h-screen overflow-hidden">
             <!-- Main Sidebar Navigation -->
-            <aside :class="['bg-white border-r border-slate-200 transition-all duration-300 flex flex-col z-20', collapsed ? 'w-20' : 'w-72']">
-                <div class="p-6 flex items-center gap-3">
-                    <div class="bg-blue-600 text-white p-2.5 rounded-custom shadow-sm flex items-center justify-center shrink-0">
-                        <i class="fas fa-box-open"></i>
-                    </div>
-                    <h1 v-if="!collapsed" class="font-bold text-xl tracking-tight text-slate-800 whitespace-nowrap">PackTrack</h1>
+            <aside :class="['cp-sidebar transition-all duration-300 flex flex-col z-20 shrink-0', collapsed ? 'w-[72px]' : 'w-64']">
+                <!-- Logo area -->
+                <div class="flex flex-col items-center justify-center shrink-0 py-6 px-4">
+                    <img src="public/colpal.png"
+                         :class="[collapsed ? 'w-10 h-10' : 'w-20 h-20']"
+                         class="object-contain drop-shadow-lg transition-all duration-300"
+                         alt="Colgate-Palmolive" />
                 </div>
 
-                <nav class="flex-1 mt-4 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-                    <div v-for="item in menuItems" :key="item.id" 
+                <!-- Divider -->
+                <div class="mx-4 border-t cp-sidebar-divider mb-3"></div>
+
+                <nav class="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+                    <div v-for="item in menuItems" :key="item.id"
                          @click="currentView = item.id"
-                         :class="['px-4 py-3.5 flex items-center gap-4 cursor-pointer rounded-custom transition-all', currentView === item.id ? 'sidebar-item-active shadow-sm' : 'text-slate-500 hover:bg-slate-50']">
-                        <i :class="['fas', item.icon, 'w-6 text-center text-lg']"></i>
-                        <span v-if="!collapsed" class="text-[0.95rem] font-medium">{{ item.label }}</span>
+                         :class="['px-3 py-3 flex items-center gap-3.5 cursor-pointer cp-sidebar-item', currentView === item.id ? 'cp-sidebar-item-active' : '']">
+                        <i :class="['fas', item.icon, 'w-5 text-center text-base shrink-0']"></i>
+                        <span v-if="!collapsed" class="text-[0.85rem] font-semibold tracking-wide whitespace-nowrap">{{ item.label }}</span>
                     </div>
                 </nav>
 
-                <div class="p-4 border-t border-slate-100 flex justify-center">
-                    <button @click="collapsed = !collapsed" class="text-slate-400 hover:text-blue-600 transition-colors p-2">
-                        <i :class="['fas text-lg', collapsed ? 'fa-indent' : 'fa-outdent']"></i>
+                <div class="p-4 border-t cp-sidebar-divider flex justify-center">
+                    <button @click="collapsed = !collapsed" class="text-white/40 hover:text-white transition-colors p-2 rounded">
+                        <i :class="['fas text-base', collapsed ? 'fa-indent' : 'fa-outdent']"></i>
                     </button>
                 </div>
             </aside>
@@ -29,64 +33,116 @@
             <main class="flex-1 flex flex-col overflow-hidden relative">
 
                 <!-- Initial Loading Overlay: shown only on first fetch before any data arrives -->
-                <div v-if="isRefreshing && projects.length === 0" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
-                    <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
-                    <p class="text-sm font-bold text-slate-500 uppercase tracking-widest">Loading data...</p>
+                <div v-if="isRefreshing && projects.length === 0" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-5">
+                    <img src="public/colgate-palmolive.png" class="w-20 h-20 object-contain animate-pulse" alt="Loading" />
+                    <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-muted)">Loading data...</p>
                 </div>
 
-                <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shrink-0 z-10">
-                    <div class="flex items-center gap-6">
-                        <h2 class="text-xl font-bold text-slate-800">
-                            {{ viewTitle }}
-                        </h2>
-                        
-                        <!-- Dashboard Toggle -->
-                        <div v-if="currentView === 'dashboard'" class="flex bg-slate-100 p-1.5 rounded-custom text-xs font-bold uppercase tracking-wider">
-                            <button @click="dashShowArchived = false" :class="['px-4 py-1.5 rounded-custom transition-all', !dashShowArchived ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600']">Active</button>
-                            <button @click="dashShowArchived = true" :class="['px-4 py-1.5 rounded-custom transition-all', dashShowArchived ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600']">Archived</button>
-                        </div>
+                <header class="cp-header flex flex-col shrink-0 z-10">
+                    <!-- Row 1: Title + Actions -->
+                    <div class="flex items-center justify-between px-8 h-[64px]">
+                        <div class="flex items-center gap-5">
+                            <h2 class="text-lg font-bold tracking-tight" style="color:var(--text-primary)">
+                                {{ viewTitle }}
+                            </h2>
+                            
+                            <!-- Dashboard Toggle -->
+                            <div v-if="currentView === 'dashboard'" class="cp-toggle flex">
+                                <button @click="dashShowArchived = false" :class="['cp-toggle-btn uppercase', !dashShowArchived ? 'cp-toggle-btn-active' : '']">Active</button>
+                                <button @click="dashShowArchived = true"  :class="['cp-toggle-btn uppercase', dashShowArchived  ? 'cp-toggle-btn-active' : '']">Archived</button>
+                            </div>
 
-                        <!-- Database Toggle (Separated Logic) -->
-                        <div v-if="currentView === 'database'" class="flex bg-slate-100 p-1.5 rounded-custom text-xs font-bold uppercase tracking-wider">
-                            <button @click="dbShowArchived = false" :class="['px-4 py-1.5 rounded-custom transition-all', !dbShowArchived ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600']">Active DB</button>
-                            <button @click="dbShowArchived = true" :class="['px-4 py-1.5 rounded-custom transition-all', dbShowArchived ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600']">Archived DB</button>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-5">
-                        <button @click="fetchData" :disabled="isRefreshing" class="text-slate-400 hover:text-blue-600 transition-colors p-2 disabled:opacity-50" title="Sync with Google Sheets">
-                            <i :class="['fas fa-sync-alt text-lg', {'fa-spin text-blue-500': isRefreshing}]"></i>
-                        </button>
-
-                        <div v-if="currentView !== 'summary' && currentView !== 'config'" class="search-container relative ml-2">
-                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                            <input v-model="searchQuery" type="text" placeholder="Search..." class="w-full bg-slate-100 border-none rounded-custom py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
-                        </div>
-                        
-                        <div v-if="['summary','dashboard','database'].includes(currentView)" class="relative group">
-                            <button class="bg-slate-100 text-slate-600 px-5 py-2.5 rounded-custom text-sm font-semibold hover:bg-slate-200 transition-all flex items-center gap-2">
-                                <i class="fas fa-download"></i><span>Export</span>
-                            </button>
-                            <div class="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-panel shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all z-20 py-2">
-                                <button @click="exportView('pdf', 'export-area')" class="w-full text-left px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600"><i class="fas fa-file-pdf mr-2"></i> As PDF</button>
-                                <button @click="exportView('image', 'export-area')" class="w-full text-left px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600"><i class="fas fa-image mr-2"></i> As Image</button>
+                            <!-- Database Toggle -->
+                            <div v-if="currentView === 'database'" class="cp-toggle flex">
+                                <button @click="dbShowArchived = false" :class="['cp-toggle-btn uppercase', !dbShowArchived ? 'cp-toggle-btn-active' : '']">Active</button>
+                                <button @click="dbShowArchived = true"  :class="['cp-toggle-btn uppercase', dbShowArchived  ? 'cp-toggle-btn-active' : '']">Archived</button>
                             </div>
                         </div>
 
-                        <button v-if="currentView === 'database'" @click="createNewFolder" class="bg-slate-800 text-white px-6 py-2.5 rounded-custom text-sm font-semibold hover:bg-slate-700 shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-folder-plus"></i><span>New Folder</span>
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button @click="fetchData" :disabled="isRefreshing" class="w-9 h-9 flex items-center justify-center rounded border border-[var(--border)] bg-white hover:border-[var(--cp-blue)] transition-all disabled:opacity-40" title="Sync with Google Sheets" style="color:var(--text-muted)">
+                                <i :class="['fas fa-sync-alt text-sm', {'fa-spin !text-[var(--cp-blue)]': isRefreshing}]"></i>
+                            </button>
 
-                        <button v-if="currentView === 'dashboard' || currentView === 'database'" @click="createNewProject" class="bg-blue-600 text-white px-6 py-2.5 rounded-custom text-sm font-semibold hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-plus"></i><span>New Project</span>
-                        </button>
-                        <button v-if="currentView === 'templates'" @click="createNewTemplate" class="bg-indigo-600 text-white px-6 py-2.5 rounded-custom text-sm font-semibold hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-wand-magic-sparkles"></i><span>New Template</span>
-                        </button>
+                            <div v-if="currentView !== 'summary' && currentView !== 'config'" class="search-container relative">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm" style="color:var(--text-muted)"></i>
+                                <input v-model="searchQuery" type="text" placeholder="Search…" class="cp-search-input">
+                            </div>
+                            
+                            <div v-if="['summary','dashboard','database'].includes(currentView)" class="relative group">
+                                <button class="btn-secondary flex items-center gap-2">
+                                    <i class="fas fa-download text-xs"></i><span>Export</span>
+                                </button>
+                                <div class="absolute right-0 mt-1.5 w-40 bg-white border border-[var(--border)] rounded-panel shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all z-20 py-1.5">
+                                    <button @click="exportView('pdf', 'export-area')" class="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-colors" style="color:var(--text-muted)"><i class="fas fa-file-pdf mr-2 text-red-400"></i> As PDF</button>
+                                    <button @click="exportView('image', 'export-area')" class="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-[var(--cp-blue-light)] transition-colors" style="color:var(--text-muted)"><i class="fas fa-image mr-2 text-[var(--cp-blue)]"></i> As Image</button>
+                                </div>
+                            </div>
+
+                            <button v-if="currentView === 'database'" @click="createNewFolder" class="btn-secondary flex items-center gap-2">
+                                <i class="fas fa-folder-plus text-xs"></i><span>New Folder</span>
+                            </button>
+
+                            <button v-if="currentView === 'dashboard' || currentView === 'database'" @click="createNewProject" class="btn-primary flex items-center gap-2">
+                                <i class="fas fa-plus text-xs"></i><span>New Project</span>
+                            </button>
+                            <button v-if="currentView === 'templates'" @click="createNewTemplate" class="btn-primary flex items-center gap-2" style="background:#4f46e5">
+                                <i class="fas fa-wand-magic-sparkles text-xs"></i><span>New Template</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Filter ribbon (dashboard, database, summary) -->
+                    <div v-if="['dashboard','database','summary'].includes(currentView)" class="flex flex-wrap items-center justify-between gap-3 px-8 py-2.5" style="border-top:1px solid var(--border);background:var(--bg-main)">
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <!-- Status filter -->
+                            <div class="flex items-center gap-1.5">
+                                <i class="fas fa-circle-half-stroke text-[0.65rem]" style="color:var(--text-muted)"></i>
+                                <select v-model="filterStatus" class="cp-select shadow-sm">
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="ON TRACK">On Track</option>
+                                    <option value="DELAYED">Delayed</option>
+                                    <option value="AT RISK">At Risk</option>
+                                    <option value="ON HOLD">On Hold</option>
+                                </select>
+                            </div>
+                            <!-- Owner filter -->
+                            <div class="flex items-center gap-1.5">
+                                <i class="fas fa-user text-[0.65rem]" style="color:var(--text-muted)"></i>
+                                <select v-model="filterOwner" class="cp-select shadow-sm">
+                                    <option value="ALL">All Owners</option>
+                                    <option value="Unassigned">Unassigned</option>
+                                    <optgroup label="CP Team">
+                                        <option v-for="user in config.cpTeam" :key="user" :value="user">{{ user }}</option>
+                                    </optgroup>
+                                    <optgroup label="External Team">
+                                        <option v-for="user in config.externalTeam" :key="user" :value="user">{{ user }}</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <!-- Folder filter -->
+                            <div v-if="currentView !== 'database'" class="flex items-center gap-1.5">
+                                <i class="fas fa-folder text-[0.65rem]" style="color:var(--text-muted)"></i>
+                                <select v-model="filterFolder" class="cp-select shadow-sm">
+                                    <option value="ALL">All Folders</option>
+                                    <option v-for="f in customFolders" :key="f" :value="f">{{ f }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Sort (not on summary) -->
+                        <div v-if="currentView !== 'summary'" class="flex items-center gap-1.5">
+                            <i class="fas fa-sort text-[0.65rem]" style="color:var(--text-muted)"></i>
+                            <select v-model="sortBy" class="cp-select shadow-sm">
+                                <option value="date_desc">Newest First</option>
+                                <option value="date_asc">Oldest First</option>
+                                <option value="name_asc">Name (A-Z)</option>
+                                <option value="status">Status Level</option>
+                            </select>
+                        </div>
                     </div>
                 </header>
 
-                <div id="export-area" class="flex-1 flex flex-col overflow-hidden bg-slate-50/50 relative">
+                <div id="export-area" class="flex-1 flex flex-col overflow-hidden relative" style="background:var(--bg-main)">
                     
                     <!-- ========================================== -->
                     <!-- VIEW: EXECUTIVE SUMMARY                    -->
@@ -95,36 +151,36 @@
                         <div class="max-w-screen-2xl mx-auto space-y-8">
                             
                             <!-- Global Overview Cards -->
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                <div class="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 rounded-panel shadow-md">
-                                    <p class="text-xs font-bold text-slate-300 uppercase tracking-widest mb-1">Active Projects</p>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                <div class="p-6 rounded-panel shadow-md text-white" style="background:linear-gradient(135deg,var(--cp-blue-dark),var(--cp-blue))">
+                                    <p class="text-[0.65rem] font-bold uppercase tracking-widest mb-1" style="color:rgba(255,255,255,0.7)">Active Projects</p>
                                     <h3 class="text-4xl font-black">{{ stats.active }}</h3>
-                                    <p class="text-[0.65rem] text-slate-400 mt-2"><i class="fas fa-archive mr-1"></i> {{ stats.archived }} Archived</p>
+                                    <p class="text-[0.65rem] mt-2 font-semibold" style="color:rgba(255,255,255,0.6)"><i class="fas fa-archive mr-1"></i> {{ stats.archived }} Archived</p>
                                 </div>
-                                <div class="bg-white p-6 rounded-panel border border-slate-200 shadow-sm">
-                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Global Progress</p>
-                                    <h3 class="text-4xl font-black text-blue-600">{{ executiveSummary.globalProgress }}%</h3>
-                                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                                        <div class="bg-blue-500 h-full" :style="{ width: executiveSummary.globalProgress + '%' }"></div>
+                                <div class="cp-kpi p-6">
+                                    <p class="text-[0.65rem] font-bold uppercase tracking-widest mb-1" style="color:var(--text-muted)">Global Progress</p>
+                                    <h3 class="text-4xl font-black" style="color:var(--cp-blue)">{{ executiveSummary.globalProgress }}%</h3>
+                                    <div class="cp-progress-bg h-1.5 mt-3 overflow-hidden">
+                                        <div class="cp-progress-fill h-full" :style="{ width: executiveSummary.globalProgress + '%' }"></div>
                                     </div>
                                 </div>
-                                <div class="bg-white p-6 rounded-panel border border-slate-200 shadow-sm">
-                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex justify-between">Total FTG <span class="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">{{ stats.ftgCount }}</span></p>
-                                    <h3 class="text-4xl font-black text-emerald-600">{{ stats.ftgTotal }}</h3>
-                                    <p class="text-[0.65rem] text-slate-400 mt-2 font-semibold">Total Savings Generated</p>
+                                <div class="cp-kpi p-6">
+                                    <p class="text-[0.65rem] font-bold uppercase tracking-widest mb-1 flex justify-between" style="color:var(--text-muted)">Total FTG <span class="px-1.5 py-0.5 rounded text-[0.6rem]" style="background:#D1FAE5;color:#059669">{{ stats.ftgCount }}</span></p>
+                                    <h3 class="text-4xl font-black" style="color:#059669">{{ stats.ftgTotal }}</h3>
+                                    <p class="text-[0.65rem] mt-2 font-semibold" style="color:var(--text-muted)">Total Savings Generated</p>
                                 </div>
-                                <div class="bg-white p-6 rounded-panel border border-slate-200 shadow-sm">
-                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex justify-between">Total On Cost <span class="bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">{{ stats.onCostCount }}</span></p>
-                                    <h3 class="text-4xl font-black text-orange-500">+{{ stats.onCostTotal }}</h3>
-                                    <p class="text-[0.65rem] text-slate-400 mt-2 font-semibold">Total Additional Costs</p>
+                                <div class="cp-kpi p-6">
+                                    <p class="text-[0.65rem] font-bold uppercase tracking-widest mb-1 flex justify-between" style="color:var(--text-muted)">Total On Cost <span class="px-1.5 py-0.5 rounded text-[0.6rem]" style="background:#FEF3C7;color:#D97706">{{ stats.onCostCount }}</span></p>
+                                    <h3 class="text-4xl font-black" style="color:#D97706">+{{ stats.onCostTotal }}</h3>
+                                    <p class="text-[0.65rem] mt-2 font-semibold" style="color:var(--text-muted)">Total Additional Costs</p>
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <!-- Pending Phases Breakdown -->
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                                    <div class="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
-                                        <h4 class="font-bold text-slate-700 uppercase tracking-wider text-xs"><i class="fas fa-tasks mr-2 text-blue-500"></i>Current / Pending Phases</h4>
+                                <div class="bg-white rounded-panel shadow-sm overflow-hidden flex flex-col" style="border:1px solid var(--border)">
+                                    <div class="p-4 flex items-center justify-between" style="background:var(--bg-main);border-bottom:1px solid var(--border)">
+                                        <h4 class="font-bold uppercase tracking-wider text-[0.65rem]" style="color:var(--text-muted)"><i class="fas fa-tasks mr-2" style="color:var(--cp-blue)"></i>Current / Pending Phases</h4>
                                     </div>
                                     <div class="p-0 overflow-y-auto max-h-[400px] custom-scrollbar">
                                         <table class="w-full text-left border-collapse">
@@ -145,10 +201,10 @@
                                 </div>
 
                                 <!-- Projects at Risk / Alerts -->
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                                    <div class="bg-red-50 border-b border-red-100 p-4 flex items-center justify-between">
-                                        <h4 class="font-bold text-red-700 uppercase tracking-wider text-xs"><i class="fas fa-exclamation-triangle mr-2"></i>Attention Required</h4>
-                                        <span class="bg-red-600 text-white text-[0.65rem] px-2 py-0.5 rounded-full font-bold">{{ executiveSummary.atRiskProjects.length }}</span>
+                                <div class="bg-white rounded-panel shadow-sm overflow-hidden flex flex-col" style="border:1px solid var(--border)">
+                                    <div class="p-4 flex items-center justify-between" style="background:#FEF2F2;border-bottom:1px solid #FECACA">
+                                        <h4 class="font-bold text-red-700 uppercase tracking-wider text-[0.65rem]"><i class="fas fa-exclamation-triangle mr-2"></i>Attention Required</h4>
+                                        <span class="text-white text-[0.65rem] px-2 py-0.5 rounded-full font-bold" style="background:#DC2626">{{ executiveSummary.atRiskProjects.length }}</span>
                                     </div>
                                     <div class="p-4 overflow-y-auto max-h-[400px] custom-scrollbar space-y-3">
                                         <div v-for="p in executiveSummary.atRiskProjects" :key="'risk-'+p.id" class="bg-white border border-red-200 p-4 rounded-custom shadow-sm flex items-start gap-4">
@@ -251,143 +307,100 @@
                     <!-- VIEW: DASHBOARD (PORTFOLIO)                -->
                     <!-- ========================================== -->
                     <!-- KPI Panel (Dashboard Only) -->
-                    <section v-if="currentView === 'dashboard' && !dashShowArchived" class="px-10 pt-8 pb-5 shrink-0">
-                        <div class="max-w-screen-2xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 xl:gap-8">
-                            <div class="bg-white p-6 rounded-panel border border-slate-200 flex items-center gap-5 shadow-sm">
-                                <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-custom flex items-center justify-center text-2xl shrink-0"><i class="fas fa-layer-group"></i></div>
+                    <section v-if="currentView === 'dashboard' && !dashShowArchived" class="px-8 pt-6 pb-4 shrink-0">
+                        <div class="max-w-screen-2xl mx-auto grid grid-cols-2 xl:grid-cols-4 gap-4">
+                            <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
+                                <div class="w-12 h-12 cp-kpi-icon flex items-center justify-center text-xl shrink-0"><i class="fas fa-layer-group"></i></div>
                                 <div>
-                                    <p class="text-[0.65rem] md:text-xs font-black text-slate-400 uppercase tracking-widest">Total Projects</p>
-                                    <p class="text-2xl md:text-3xl font-bold text-slate-800">{{ stats.total }}</p>
+                                    <p class="text-[0.62rem] font-bold uppercase tracking-widest mb-0.5" style="color:var(--text-muted)">Total Projects</p>
+                                    <p class="text-2xl font-black" style="color:var(--text-primary)">{{ stats.total }}</p>
                                 </div>
                             </div>
-                            <div class="bg-white p-6 rounded-panel border border-slate-200 flex items-center gap-5 shadow-sm">
-                                <div class="w-14 h-14 bg-red-50 text-red-500 rounded-custom flex items-center justify-center text-2xl shrink-0"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
+                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#FEE2E2;color:#DC2626"><i class="fas fa-exclamation-triangle"></i></div>
                                 <div>
-                                    <p class="text-[0.65rem] md:text-xs font-black text-slate-400 uppercase tracking-widest">Active Alerts</p>
-                                    <p class="text-2xl md:text-3xl font-bold text-slate-800">{{ stats.alerts }}</p>
+                                    <p class="text-[0.62rem] font-bold uppercase tracking-widest mb-0.5" style="color:var(--text-muted)">Active Alerts</p>
+                                    <p class="text-2xl font-black" style="color:var(--text-primary)">{{ stats.alerts }}</p>
                                 </div>
                             </div>
-                            <div class="bg-white p-6 rounded-panel border border-slate-200 flex items-center gap-5 shadow-sm">
-                                <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-custom flex items-center justify-center text-2xl shrink-0"><i class="fas fa-arrow-trend-down"></i></div>
+                            <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
+                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#D1FAE5;color:#059669"><i class="fas fa-arrow-trend-down"></i></div>
                                 <div>
-                                    <p class="text-[0.65rem] md:text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">Total FTG <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[0.6rem]">{{ stats.ftgCount }} Prj</span></p>
-                                    <p class="text-2xl md:text-3xl font-bold text-emerald-600">{{ stats.ftgTotal }}</p>
+                                    <p class="text-[0.62rem] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-2" style="color:var(--text-muted)">Total FTG <span class="rounded px-1.5 py-0.5 text-[0.55rem]" style="background:#D1FAE5;color:#059669">{{ stats.ftgCount }}</span></p>
+                                    <p class="text-2xl font-black" style="color:#059669">{{ stats.ftgTotal }}</p>
                                 </div>
                             </div>
-                            <div class="bg-white p-6 rounded-panel border border-slate-200 flex items-center gap-5 shadow-sm">
-                                <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-custom flex items-center justify-center text-2xl shrink-0"><i class="fas fa-arrow-trend-up"></i></div>
+                            <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
+                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#FEF3C7;color:#D97706"><i class="fas fa-arrow-trend-up"></i></div>
                                 <div>
-                                    <p class="text-[0.65rem] md:text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">Total On Cost <span class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.6rem]">{{ stats.onCostCount }} Prj</span></p>
-                                    <p class="text-2xl md:text-3xl font-bold text-orange-500">+{{ stats.onCostTotal }}</p>
+                                    <p class="text-[0.62rem] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-2" style="color:var(--text-muted)">On Cost <span class="rounded px-1.5 py-0.5 text-[0.55rem]" style="background:#FEF3C7;color:#D97706">{{ stats.onCostCount }}</span></p>
+                                    <p class="text-2xl font-black" style="color:#D97706">+{{ stats.onCostTotal }}</p>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-                    <!-- Filtering & Sorting Ribbon -->
-                    <div v-if="currentView === 'dashboard' || currentView === 'database'" class="px-10 py-3 max-w-screen-2xl mx-auto w-full flex flex-wrap gap-4 justify-between items-center shrink-0">
-                        <div class="flex flex-wrap items-center gap-6">
-                            <div class="flex items-center gap-2.5">
-                                <span class="text-sm font-bold text-slate-400 uppercase"><i class="fas fa-filter mr-1.5"></i> Status:</span>
-                                <select v-model="filterStatus" class="bg-white border border-slate-200 rounded-md text-sm font-semibold py-2 px-4 text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer">
-                                    <option value="ALL">All Statuses</option>
-                                    <option value="ON TRACK">On Track</option>
-                                    <option value="DELAYED">Delayed</option>
-                                    <option value="AT RISK">At Risk</option>
-                                    <option value="ON HOLD">On Hold</option>
-                                </select>
-                            </div>
-                            <div class="flex items-center gap-2.5">
-                                <span class="text-sm font-bold text-slate-400 uppercase"><i class="fas fa-user mr-1.5"></i> Owner:</span>
-                                <select v-model="filterOwner" class="bg-white border border-slate-200 rounded-md text-sm font-semibold py-2 px-4 text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer">
-                                    <option value="ALL">All Owners</option>
-                                    <option value="Unassigned">Unassigned</option>
-                                    <optgroup label="CP Team">
-                                        <option v-for="user in config.cpTeam" :key="user" :value="user">{{ user }}</option>
-                                    </optgroup>
-                                    <optgroup label="External Team">
-                                        <option v-for="user in config.externalTeam" :key="user" :value="user">{{ user }}</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-sm font-bold text-slate-400 uppercase"><i class="fas fa-sort mr-1.5"></i> Sort By:</span>
-                            <select v-model="sortBy" class="bg-white border border-slate-200 rounded-md text-sm font-semibold py-2 px-4 text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer">
-                                <option value="date_desc">Newest First</option>
-                                <option value="date_asc">Oldest First</option>
-                                <option value="name_asc">Name (A-Z)</option>
-                                <option value="status">Status Level</option>
-                            </select>
-                        </div>
-                    </div>
 
                     <!-- Project List (Dashboard) -->
-                    <div v-if="currentView === 'dashboard'" class="flex-1 overflow-y-auto p-10 pt-4 custom-scrollbar">
-                        <div class="max-w-screen-2xl mx-auto space-y-4">
-                            <div v-for="p in filteredProjects" :key="p.id" class="bg-white p-6 rounded-panel border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between group gap-4">
-                                <div @click="viewProjectDetails(p)" class="flex items-center gap-6 flex-1 cursor-pointer min-w-0">
-                                    <div :class="['w-14 h-14 rounded-custom flex items-center justify-center transition-colors shrink-0', p.archived ? 'bg-slate-100 text-slate-400' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500']">
-                                        <i :class="['fas', p.archived ? 'fa-box-archive' : (p.icon || 'fa-folder-open'), 'text-2xl']"></i>
+                    <div v-if="currentView === 'dashboard'" class="flex-1 overflow-y-auto px-8 pt-2 pb-8 custom-scrollbar">
+                        <div class="max-w-screen-2xl mx-auto space-y-3">
+                            <div v-for="p in filteredProjects" :key="p.id" class="cp-card p-5 flex flex-col md:flex-row md:items-center justify-between group gap-4">
+                                <div @click="viewProjectDetails(p)" class="flex items-center gap-5 flex-1 cursor-pointer min-w-0">
+                                    <div :class="['w-12 h-12 rounded flex items-center justify-center transition-colors shrink-0', p.archived ? 'bg-slate-100 text-slate-300' : 'cp-kpi-icon group-hover:shadow-md']">
+                                        <i :class="['fas', p.archived ? 'fa-box-archive' : (p.icon || 'fa-folder-open'), 'text-xl']"></i>
                                     </div>
-                                    <div class="flex-1 min-w-0 pr-4">
-                                        <h4 :class="['text-lg font-bold transition-colors flex items-center gap-3 truncate', p.archived ? 'text-slate-400' : 'text-slate-800 group-hover:text-blue-600']">
-                                            {{ p.title }}
-                                            <span v-if="getProjectAlerts(p) > 0" class="bg-red-100 text-red-600 text-[0.65rem] px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5 shrink-0">
-                                                <i class="fas fa-bell"></i> {{ getProjectAlerts(p) }} Alerts
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <div class="flex items-center gap-2.5 mb-1">
+                                            <h4 :class="['text-base font-bold truncate transition-colors', p.archived ? 'text-slate-400' : 'group-hover:text-[var(--cp-blue)]']" style="color:var(--text-primary)">{{ p.title }}</h4>
+                                            <span v-if="getProjectAlerts(p) > 0" class="text-[0.6rem] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0" style="background:#FEE2E2;color:#DC2626">
+                                                <i class="fas fa-bell"></i> {{ getProjectAlerts(p) }}
                                             </span>
-                                        </h4>
-                                        <div class="flex flex-wrap items-center gap-4 mt-1.5">
-                                            <span class="text-xs text-slate-400 font-medium tracking-wider uppercase">{{ p.code }}</span>
-                                            <span :class="['text-[0.7rem] px-2.5 py-0.5 rounded-md font-bold uppercase', p.archived ? 'bg-slate-100 text-slate-400' : getStatusCycleColor(p.cycleStatus)]">
-                                                {{ p.cycleStatus }}
-                                            </span>
-                                            <span class="text-[0.7rem] text-slate-400 bg-slate-100 px-2 py-0.5 rounded font-bold uppercase border border-slate-200">{{ p.category || 'Uncategorized' }}</span>
                                         </div>
-                                        
-                                        <!-- PROGRESS BAR ENHANCEMENT -->
-                                        <div class="mt-3 max-w-sm hidden md:block">
-                                            <div class="flex justify-between text-[0.6rem] font-bold text-slate-400 mb-1 tracking-wider uppercase">
-                                                <span class="truncate pr-2"><i class="fas fa-spinner mr-1 opacity-50"></i>{{ getCurrentPhase(p) }}</span>
-                                                <span class="text-blue-500">{{ calculateProgress(p) }}%</span>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="text-[0.65rem] font-bold uppercase tracking-wider" style="color:var(--text-muted)">{{ p.code }}</span>
+                                            <span :class="['text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase', p.archived ? 'bg-slate-100 text-slate-400' : getStatusCycleColor(p.cycleStatus)]">{{ p.cycleStatus }}</span>
+                                            <span class="text-[0.65rem] font-semibold px-2 py-0.5 rounded border" style="background:var(--cp-blue-light);color:var(--cp-blue);border-color:#c8d8f5">{{ p.category || 'Uncategorized' }}</span>
+                                            <span class="text-[0.65rem] font-semibold" style="color:var(--text-muted)"><i class="fas fa-folder mr-1 opacity-60"></i>{{ p.folder || 'Uncategorized' }}</span>
+                                        </div>
+                                        <div class="mt-2.5 max-w-xs hidden md:block">
+                                            <div class="flex justify-between text-[0.58rem] font-bold mb-1" style="color:var(--text-muted)">
+                                                <span class="truncate pr-2">{{ getCurrentPhase(p) }}</span>
+                                                <span style="color:var(--cp-blue)">{{ calculateProgress(p) }}%</span>
                                             </div>
-                                            <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                                <div class="bg-blue-500 h-full transition-all duration-500" :style="{ width: calculateProgress(p) + '%' }"></div>
+                                            <div class="cp-progress-bg h-1.5 overflow-hidden">
+                                                <div class="cp-progress-fill h-full transition-all duration-500" :style="{ width: calculateProgress(p) + '%' }"></div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <div class="flex items-center gap-6 md:gap-10 border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 shrink-0">
-                                    <!-- Finance Pill -->
-                                    <div v-if="p.finances && p.finances.calculated !== 0" class="text-right">
-                                        <span :class="['text-[0.7rem] font-bold px-2.5 py-1.5 rounded shadow-sm border', p.finances.calculated < 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-orange-50 text-orange-700 border-orange-100']">
-                                            <i :class="['fas mr-1', p.finances.calculated < 0 ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up']"></i>
-                                            {{ formatFinance(p.finances.calculated) }}
+                                <div class="flex items-center gap-5 border-t md:border-t-0 pt-3 md:pt-0 shrink-0" style="border-color:var(--border)">
+                                    <div v-if="p.finances && p.finances.calculated !== 0">
+                                        <span :class="['text-[0.65rem] font-bold px-2.5 py-1.5 rounded border', p.finances.calculated < 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-orange-50 text-orange-700 border-orange-100']">
+                                            <i :class="['fas mr-1', p.finances.calculated < 0 ? 'fa-arrow-trend-down' : 'fa-arrow-trend-up']"></i>{{ formatFinance(p.finances.calculated) }}
                                         </span>
                                     </div>
-
-                                    <div class="text-right border-x border-slate-100 px-6 hidden xl:block min-w-[120px]">
-                                        <p class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest">Owner</p>
-                                        <p class="text-sm font-semibold text-slate-600 truncate">{{ p.projectOwner || 'Unassigned' }}</p>
+                                    <div class="text-right hidden xl:block min-w-[110px] border-x px-4" style="border-color:var(--border)">
+                                        <p class="text-[0.6rem] font-bold uppercase tracking-widest" style="color:var(--text-muted)">Owner</p>
+                                        <p class="text-xs font-semibold truncate" style="color:var(--text-primary)">{{ p.projectOwner || 'Unassigned' }}</p>
                                     </div>
-                                    <div class="flex items-center gap-3">
-                                        <button @click.stop="toggleArchive(p)" class="w-10 h-10 flex items-center justify-center rounded-custom text-slate-300 hover:bg-amber-50 hover:text-amber-600 transition-all text-lg" title="Archive/Unarchive">
-                                            <i :class="['fas', p.archived ? 'fa-box-open' : 'fa-box-archive']"></i>
+                                    <div class="flex items-center gap-1">
+                                        <button @click.stop="toggleArchive(p)" class="w-8 h-8 flex items-center justify-center rounded transition-all hover:bg-amber-50" style="color:var(--text-muted)" title="Archive/Unarchive">
+                                            <i :class="['fas text-sm', p.archived ? 'fa-box-open' : 'fa-box-archive']"></i>
                                         </button>
-                                        <button @click="viewProjectDetails(p)" class="w-10 h-10 flex items-center justify-center rounded-custom text-slate-300 hover:bg-blue-50 hover:text-blue-600 transition-all text-lg" title="View Details">
-                                            <i class="fas fa-eye"></i>
+                                        <button @click="viewProjectDetails(p)" class="w-8 h-8 flex items-center justify-center rounded transition-all hover:bg-[var(--cp-blue-light)]" style="color:var(--text-muted)" title="View Details">
+                                            <i class="fas fa-eye text-sm" style="color:var(--cp-blue)"></i>
                                         </button>
-                                        <button @click.stop="confirmDeleteProject(p)" class="w-10 h-10 flex items-center justify-center rounded-custom text-slate-300 hover:bg-red-50 hover:text-red-600 transition-all text-lg" title="Delete Project">
-                                            <i class="fas fa-trash-alt"></i>
+                                        <button @click.stop="confirmDeleteProject(p)" class="w-8 h-8 flex items-center justify-center rounded transition-all hover:bg-red-50 hover:text-red-500" style="color:var(--text-muted)" title="Delete">
+                                            <i class="fas fa-trash-alt text-sm"></i>
                                         </button>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div v-if="filteredProjects.length === 0" class="text-center py-24 text-slate-400">
-                                <i class="fas fa-inbox text-5xl mb-4 opacity-50"></i>
-                                <p class="font-semibold text-base">No projects found matching criteria.</p>
+                            <div v-if="filteredProjects.length === 0" class="text-center py-20" style="color:var(--text-muted)">
+                                <i class="fas fa-inbox text-5xl mb-4 opacity-30"></i>
+                                <p class="font-semibold text-sm">No projects found matching the selected filters.</p>
                             </div>
                         </div>
                     </div>
@@ -395,81 +408,76 @@
                     <!-- ========================================== -->
                     <!-- VIEW: DATABASE (FOLDERS)                   -->
                     <!-- ========================================== -->
-                    <div v-if="currentView === 'database'" class="flex-1 overflow-y-auto p-10 pt-4 custom-scrollbar">
-                        <div class="max-w-screen-2xl mx-auto">
-                            <div v-for="(folderProjects, folderName) in projectsByFolder" :key="folderName" class="mb-8">
-                                <div class="bg-slate-800 text-white p-4 px-6 rounded-t-panel flex flex-wrap items-center justify-between group shadow-sm gap-4">
-                                    <div @click="toggleFolder(folderName)" class="flex items-center gap-4 cursor-pointer flex-1">
-                                        <i :class="['fas text-lg', folderState[folderName] ? 'fa-folder-open' : 'fa-folder', 'text-blue-300']"></i>
-                                        <h3 class="font-bold text-base tracking-wide">{{ folderName }}</h3>
-                                        <span class="bg-slate-600 text-[0.7rem] px-2.5 py-0.5 rounded-full">{{ folderProjects.length }}</span>
+                    <div v-if="currentView === 'database'" class="flex-1 overflow-y-auto px-8 pt-2 pb-8 custom-scrollbar">
+                        <div class="max-w-screen-2xl mx-auto space-y-5">
+                            <div v-for="(folderProjects, folderName) in projectsByFolder" :key="folderName">
+                                <div class="cp-folder-header px-6 py-4 flex flex-wrap items-center justify-between group gap-3">
+                                    <div @click="toggleFolder(folderName)" class="flex items-center gap-3 cursor-pointer flex-1">
+                                        <i :class="['fas text-base', folderState[folderName] ? 'fa-folder-open' : 'fa-folder']" style="color:rgba(255,255,255,0.75)"></i>
+                                        <h3 class="font-bold text-sm tracking-wide text-white">{{ folderName }}</h3>
+                                        <span class="text-[0.65rem] px-2 py-0.5 rounded-full font-bold" style="background:rgba(255,255,255,0.2);color:#fff">{{ folderProjects.length }}</span>
                                     </div>
-                                    <div class="flex items-center gap-4 text-xs font-bold">
-                                        <!-- KPI Summaries per Folder -->
-                                        <span v-if="getFolderKPI(folderProjects).ftg < 0" class="text-emerald-400 bg-slate-700 px-2 py-1 rounded"><i class="fas fa-arrow-trend-down"></i> FTG: {{ formatFinance(getFolderKPI(folderProjects).ftg) }}</span>
-                                        <span v-if="getFolderKPI(folderProjects).onCost > 0" class="text-orange-400 bg-slate-700 px-2 py-1 rounded"><i class="fas fa-arrow-trend-up"></i> OnCost: +{{ formatFinance(getFolderKPI(folderProjects).onCost) }}</span>
-                                        
-                                        <button v-if="folderName !== 'Uncategorized'" @click.stop="deleteFolder(folderName)" class="text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1.5" title="Delete Folder">
-                                            <i class="fas fa-trash-alt text-sm"></i>
+                                    <div class="flex items-center gap-3 text-xs font-bold">
+                                        <span v-if="getFolderKPI(folderProjects).ftg < 0" class="px-2.5 py-1 rounded text-xs font-bold" style="background:rgba(255,255,255,0.15);color:#6ee7b7"><i class="fas fa-arrow-trend-down mr-1"></i>{{ formatFinance(getFolderKPI(folderProjects).ftg) }}</span>
+                                        <span v-if="getFolderKPI(folderProjects).onCost > 0" class="px-2.5 py-1 rounded text-xs font-bold" style="background:rgba(255,255,255,0.15);color:#fcd34d"><i class="fas fa-arrow-trend-up mr-1"></i>+{{ formatFinance(getFolderKPI(folderProjects).onCost) }}</span>
+                                        <button v-if="folderName !== 'Uncategorized'" @click.stop="deleteFolder(folderName)" class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-white/10" style="color:rgba(255,255,255,0.5)" title="Delete Folder">
+                                            <i class="fas fa-trash-alt text-xs"></i>
                                         </button>
-                                        <i :class="['fas text-sm transition-transform cursor-pointer', folderState[folderName] ? 'fa-chevron-up' : 'fa-chevron-down']" @click="toggleFolder(folderName)"></i>
+                                        <i :class="['fas text-sm cursor-pointer text-white/70', folderState[folderName] ? 'fa-chevron-up' : 'fa-chevron-down']" @click="toggleFolder(folderName)"></i>
                                     </div>
                                 </div>
-                                <div v-show="folderState[folderName]" class="bg-white border-x border-b border-slate-200 rounded-b-panel p-5 shadow-sm min-h-[60px] overflow-x-auto">
+                                <div v-show="folderState[folderName]" class="bg-white border-x border-b rounded-b-panel shadow-sm min-h-[48px] overflow-x-auto" style="border-color:var(--border)">
                                     <table v-if="folderProjects.length > 0" class="w-full text-left border-collapse min-w-[1000px]">
                                         <thead>
-                                            <tr class="text-xs font-black text-slate-400 uppercase border-b border-slate-100">
-                                                <th class="pb-3 px-4 w-24">Code</th>
-                                                <th class="pb-3 px-4">Name</th>
-                                                <th class="pb-3 px-4 w-32">Category</th>
-                                                <th class="pb-3 px-4 w-56">Progress & Phase</th>
-                                                <th class="pb-3 px-4 w-32">Owner</th>
-                                                <th class="pb-3 px-4 w-24">Finances</th>
-                                                <th class="pb-3 px-4 w-24">Status</th>
-                                                <th class="pb-3 px-4 text-right w-40">Actions</th>
+                                            <tr class="border-b" style="border-color:var(--border)">
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-24" style="color:var(--text-muted)">Code</th>
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Name</th>
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-32" style="color:var(--text-muted)">Category</th>
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-52" style="color:var(--text-muted)">Progress</th>
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-32" style="color:var(--text-muted)">Owner</th>
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-24" style="color:var(--text-muted)">Finances</th>
+                                                <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-24" style="color:var(--text-muted)">Status</th>
+                                                <th class="pb-3 pt-4 px-4 text-right text-[0.6rem] font-black uppercase tracking-widest w-40" style="color:var(--text-muted)">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <tr v-for="p in folderProjects" :key="p.id" class="hover:bg-slate-50 transition-colors group border-b border-slate-50 last:border-0">
-                                                <td class="py-4 px-4 text-xs font-mono text-slate-500">{{ p.code }}</td>
-                                                <td class="py-4 px-4 text-sm font-bold text-slate-800">{{ p.title }}</td>
-                                                <td class="py-4 px-4 text-xs font-semibold text-slate-500">{{ p.category || '-' }}</td>
-                                                
-                                                <!-- UI Consistency: Progress & Phase -->
-                                                <td class="py-4 px-4">
-                                                    <div class="flex justify-between text-[0.6rem] font-bold text-slate-400 mb-1.5 tracking-wider uppercase">
-                                                        <span class="truncate pr-2"><i class="fas fa-spinner mr-1 opacity-50"></i>{{ getCurrentPhase(p) }}</span>
-                                                        <span class="text-blue-500">{{ calculateProgress(p) }}%</span>
+                                            <tr v-for="p in folderProjects" :key="p.id" class="border-b last:border-0 transition-colors group hover:bg-[var(--cp-blue-light)]/40" style="border-color:var(--border)">
+                                                <td class="py-3.5 px-4 text-[0.7rem] font-mono" style="color:var(--text-muted)">{{ p.code }}</td>
+                                                <td class="py-3.5 px-4 text-sm font-bold" style="color:var(--text-primary)">{{ p.title }}</td>
+                                                <td class="py-3.5 px-4 text-xs font-semibold" style="color:var(--text-muted)">{{ p.category || '-' }}</td>
+                                                <td class="py-3.5 px-4">
+                                                    <div class="flex justify-between text-[0.58rem] font-bold mb-1" style="color:var(--text-muted)">
+                                                        <span class="truncate pr-2">{{ getCurrentPhase(p) }}</span>
+                                                        <span style="color:var(--cp-blue)">{{ calculateProgress(p) }}%</span>
                                                     </div>
-                                                    <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                                                        <div class="bg-blue-500 h-full transition-all duration-500" :style="{ width: calculateProgress(p) + '%' }"></div>
+                                                    <div class="cp-progress-bg h-1.5 overflow-hidden w-full">
+                                                        <div class="cp-progress-fill h-full transition-all duration-500" :style="{ width: calculateProgress(p) + '%' }"></div>
                                                     </div>
                                                 </td>
-
-                                                <td class="py-4 px-4 text-xs font-semibold text-slate-600">{{ p.projectOwner || '-' }}</td>
-                                                <td class="py-4 px-4">
-                                                    <span v-if="p.finances && p.finances.calculated !== 0" :class="['text-[0.65rem] font-bold px-2 py-1 rounded whitespace-nowrap', p.finances.calculated < 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700']">
+                                                <td class="py-3.5 px-4 text-xs font-semibold" style="color:var(--text-primary)">{{ p.projectOwner || '-' }}</td>
+                                                <td class="py-3.5 px-4">
+                                                    <span v-if="p.finances && p.finances.calculated !== 0" :class="['text-[0.65rem] font-bold px-2 py-1 rounded whitespace-nowrap', p.finances.calculated < 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700']">
                                                         {{ formatFinance(p.finances.calculated) }}
                                                     </span>
-                                                    <span v-else class="text-slate-300 text-xs">-</span>
+                                                    <span v-else class="text-[0.7rem]" style="color:var(--border)">—</span>
                                                 </td>
-                                                <td class="py-4 px-4">
-                                                    <span :class="['text-[0.65rem] px-2.5 py-1 rounded-md font-bold uppercase whitespace-nowrap', p.archived ? 'bg-slate-100 text-slate-400' : getStatusCycleColor(p.cycleStatus)]">
+                                                <td class="py-3.5 px-4">
+                                                    <span :class="['text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase whitespace-nowrap', p.archived ? 'bg-slate-100 text-slate-400' : getStatusCycleColor(p.cycleStatus)]">
                                                         {{ p.archived ? 'ARCHIVED' : p.cycleStatus }}
                                                     </span>
                                                 </td>
-                                                <td class="py-4 px-4 text-right whitespace-nowrap">
-                                                    <select v-model="p.folder" @change="handleMoveFolder(p)" class="bg-white border border-slate-200 rounded text-xs px-2 py-1.5 mr-2 text-slate-600 outline-none focus:ring-1 focus:ring-blue-500 shadow-sm w-[110px] cursor-pointer inline-block align-middle">
+                                                <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                                    <select v-model="p.folder" @change="handleMoveFolder(p)" class="cp-select text-[0.7rem] py-1 px-2 mr-1 w-[100px] inline-block align-middle shadow-sm">
                                                         <option v-for="f in customFolders" :key="f" :value="f">{{ f }}</option>
                                                     </select>
-                                                    <button @click="openProjectEditor(p)" class="text-slate-300 hover:text-blue-600 p-2 align-middle" title="Quick Edit"><i class="fas fa-pen text-sm"></i></button>
-                                                    <button @click="viewProjectDetails(p)" class="text-slate-300 hover:text-emerald-600 p-2 align-middle" title="View Details"><i class="fas fa-eye text-sm"></i></button>
-                                                    <button @click.stop="confirmDeleteProject(p)" class="text-slate-300 hover:text-red-600 p-2 align-middle" title="Delete Project"><i class="fas fa-trash-alt text-sm"></i></button>
+                                                    <button @click="openProjectEditor(p)" class="p-1.5 align-middle rounded hover:bg-[var(--cp-blue-light)] transition-colors" style="color:var(--text-muted)" title="Edit"><i class="fas fa-pen text-xs"></i></button>
+                                                    <button @click="viewProjectDetails(p)" class="p-1.5 align-middle rounded hover:bg-[var(--cp-blue-light)] transition-colors" style="color:var(--cp-blue)" title="View"><i class="fas fa-eye text-xs"></i></button>
+                                                    <button @click.stop="confirmDeleteProject(p)" class="p-1.5 align-middle rounded hover:bg-red-50 hover:text-red-500 transition-colors" style="color:var(--text-muted)" title="Delete"><i class="fas fa-trash-alt text-xs"></i></button>
                                                 </td>
                                             </tr>
                                         </tbody>
                                     </table>
-                                    <div v-else class="text-center py-6 text-xs font-bold text-slate-300 uppercase">
+                                    <div v-else class="text-center py-6 text-[0.7rem] font-bold uppercase tracking-widest" style="color:var(--border)">
                                         Empty Folder
                                     </div>
                                 </div>
@@ -520,7 +528,7 @@
             <div class="bg-white w-full max-w-[90vw] h-[92vh] rounded-panel shadow-2xl flex flex-col overflow-hidden">
                 <div class="px-10 py-6 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                     <div class="flex items-center gap-5">
-                        <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-custom flex items-center justify-center">
+                        <div class="w-14 h-14 rounded-custom flex items-center justify-center cp-kpi-icon">
                             <i :class="['fas', selectedProject.icon || 'fa-chart-line', 'text-2xl']"></i>
                         </div>
                         <div>
@@ -553,7 +561,7 @@
                                 <button @click="exportView('image', 'project-details-export')" class="w-full text-left px-5 py-2.5 text-sm font-bold hover:bg-slate-50">Image</button>
                             </div>
                         </div>
-                        <button @click="openProjectEditor(selectedProject)" class="bg-blue-600 text-white px-6 py-2.5 rounded-custom text-sm font-bold uppercase tracking-wider hover:bg-blue-700 transition-all flex items-center gap-2">
+                        <button @click="openProjectEditor(selectedProject)" class="btn-primary flex items-center gap-2">
                             <i class="fas fa-edit"></i> Edit
                         </button>
                         <button @click="detailsOpen = false" class="text-slate-400 hover:text-red-500 p-2.5"><i class="fas fa-times text-2xl"></i></button>
@@ -584,8 +592,8 @@
                                     <span class="text-xs font-bold text-slate-400 uppercase">Total Progress</span>
                                     <span class="text-sm font-bold text-blue-600">{{ calculateProgress(selectedProject) }}%</span>
                                 </div>
-                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                                    <div class="bg-blue-500 h-full transition-all duration-700" :style="{ width: calculateProgress(selectedProject) + '%' }"></div>
+                                <div class="cp-progress-bg h-2.5 overflow-hidden">
+                                    <div class="cp-progress-fill h-full transition-all duration-700" :style="{ width: calculateProgress(selectedProject) + '%' }"></div>
                                 </div>
                             </div>
                         </div>
@@ -759,16 +767,16 @@
                 
                 <!-- Editor Loading Overlay -->
                 <div v-if="isSaving" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-[100] flex items-center justify-center rounded-panel">
-                    <div class="text-center">
-                        <i class="fas fa-circle-notch fa-spin text-5xl text-blue-600 mb-4"></i>
-                        <p class="text-base font-bold text-slate-600 uppercase tracking-widest">Saving Configuration...</p>
+                    <div class="text-center flex flex-col items-center gap-4">
+                        <img src="public/colgate-palmolive.png" class="w-20 h-20 object-contain animate-pulse" alt="Saving" />
+                        <p class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-muted)">Saving Configuration...</p>
                     </div>
                 </div>
 
                 <!-- Editor Header -->
                 <div class="px-10 py-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-50 rounded-t-panel shrink-0">
                     <div class="flex items-center gap-5">
-                        <div :class="['w-12 h-12 text-white rounded-custom flex items-center justify-center shadow-lg cursor-move', editingType === 'project' ? 'bg-blue-600' : 'bg-indigo-600']">
+                        <div :class="['w-12 h-12 text-white rounded-custom flex items-center justify-center shadow-lg cursor-move', editingType === 'project' ? 'bg-[var(--cp-blue)]' : 'bg-indigo-600']">
                             <i :class="['fas', editingType === 'project' ? 'fa-pen-ruler' : 'fa-scroll', 'text-xl']"></i>
                         </div>
                         <div>
@@ -785,7 +793,7 @@
                             </div>
                         </div>
 
-                        <button @click="saveChanges" :class="['px-8 py-3 rounded-custom text-sm font-bold uppercase tracking-wider text-white shadow-sm transition-all flex items-center gap-2', editingType === 'project' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700']">
+                        <button @click="saveChanges" :class="['px-8 py-3 rounded-custom text-sm font-bold uppercase tracking-wider text-white shadow-sm transition-all flex items-center gap-2', editingType === 'project' ? 'bg-[var(--cp-blue)] hover:bg-[var(--cp-blue-dark)]' : 'bg-indigo-600 hover:bg-indigo-700']">
                             <i class="fas fa-save"></i> Save Changes
                         </button>
                         <button @click="viewerOpen = false" class="text-slate-400 hover:text-red-500 p-2.5"><i class="fas fa-times text-2xl"></i></button>
@@ -793,12 +801,12 @@
                 </div>
 
                 <!-- Template Export Area wrapper -->
-                <div id="template-export-area" class="flex-1 flex flex-col p-10 bg-slate-50/50 space-y-8 overflow-y-auto">
+                <div id="template-export-area" class="flex-1 flex flex-col p-10 space-y-8 overflow-y-auto" style="background:var(--bg-main)">
                     
                     <!-- 1. PROJECT INFORMATION -->
                     <div class="bg-white rounded-panel border border-slate-200 shadow-sm overflow-hidden shrink-0">
-                        <div class="bg-slate-800 text-white px-6 py-3 font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                            <i class="fas fa-info-circle text-blue-400"></i> Project Information
+                        <div class="px-6 py-3 font-bold text-sm uppercase tracking-wider flex items-center gap-2 text-white" style="background:linear-gradient(90deg,var(--cp-blue-dark),var(--cp-blue))">
+                            <i class="fas fa-info-circle" style="color:rgba(255,255,255,0.7)"></i> Project Information
                         </div>
                         <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             
@@ -923,8 +931,8 @@
 
                     <!-- 2. FILE MANAGEMENT (Google Drive Integration) - ONLY FOR PROJECTS -->
                     <div v-if="editingType === 'project'" class="bg-white rounded-panel border border-slate-200 shadow-sm overflow-hidden shrink-0">
-                        <div class="bg-slate-800 text-white px-6 py-3 font-bold text-sm uppercase tracking-wider flex items-center justify-between">
-                            <div class="flex items-center gap-2"><i class="fab fa-google-drive text-blue-400"></i> Google Drive Files</div>
+                        <div class="px-6 py-3 font-bold text-sm uppercase tracking-wider flex items-center justify-between text-white" style="background:linear-gradient(90deg,var(--cp-blue-dark),var(--cp-blue))">
+                            <div class="flex items-center gap-2"><i class="fab fa-google-drive" style="color:rgba(255,255,255,0.7)"></i> Google Drive Files</div>
                             <span v-if="editingObject.driveFolderId" class="text-[0.6rem] bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-mono border border-slate-600">ID: {{ editingObject.driveFolderId }}</span>
                         </div>
                         
@@ -972,7 +980,7 @@
                                 </div>
 
                                 <div v-if="isDriveLoading" class="flex justify-center py-10">
-                                    <i class="fas fa-circle-notch fa-spin text-3xl text-blue-500"></i>
+                                    <img src="public/colgate-palmolive.png" class="w-12 h-12 object-contain animate-pulse" alt="Loading" />
                                 </div>
 
                                 <div v-else-if="!driveFiles.length && !driveFolders.length" class="text-center py-16 opacity-50">
@@ -1001,8 +1009,8 @@
 
                     <!-- 3. WORKFLOW PHASES (EDITABLE + DRAG&DROP) -->
                     <div class="bg-white rounded-panel border border-slate-200 shadow-sm overflow-hidden flex flex-col shrink-0 min-h-[600px]">
-                        <div class="bg-slate-800 text-white px-6 py-3 font-bold text-sm uppercase tracking-wider flex items-center justify-between shrink-0">
-                            <div class="flex items-center gap-2"><i class="fas fa-project-diagram text-blue-400"></i> Workflow Phases</div>
+                        <div class="px-6 py-3 font-bold text-sm uppercase tracking-wider flex items-center justify-between shrink-0 text-white" style="background:linear-gradient(90deg,var(--cp-blue-dark),var(--cp-blue))">
+                            <div class="flex items-center gap-2"><i class="fas fa-project-diagram" style="color:rgba(255,255,255,0.7)"></i> Workflow Phases</div>
                             <div class="flex gap-2">
                                 <div class="relative group">
                                     <button class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-[0.65rem] font-bold uppercase tracking-wider transition-colors border border-slate-600">
@@ -1051,7 +1059,7 @@
                                         </button>
                                         
                                         <!-- Active Indicator bar -->
-                                        <div v-if="activeViewerStage === idx" class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
+                                        <div v-if="activeViewerStage === idx" class="absolute left-0 top-0 bottom-0 w-1" style="background:var(--cp-blue)"></div>
                                     </div>
                                     <div v-if="editingObject.stages.length === 0" class="text-center py-10 opacity-50">
                                         <p class="text-xs font-bold text-slate-400 uppercase">No phases added.</p>
@@ -1231,7 +1239,7 @@
                     <button v-if="dialog.type !== 'alert'" @click="dialogCancel"
                         class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">Cancel</button>
                     <button @click="dialogConfirm"
-                        :class="['px-5 py-2 text-sm font-bold rounded-custom text-white transition-colors', dialog.type === 'confirm' && dialog.message.toLowerCase().includes('delete') ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700']">
+                        :class="['px-5 py-2 text-sm font-bold rounded-custom text-white transition-colors', dialog.type === 'confirm' && dialog.message.toLowerCase().includes('delete') ? 'bg-red-500 hover:bg-red-600' : 'btn-primary']">
                         {{ dialog.type === 'alert' ? 'OK' : 'Confirm' }}
                     </button>
                 </div>
@@ -1241,13 +1249,15 @@
         <!-- Global Toast Notification -->
         <transition name="toast">
             <div v-if="toast.show" class="fixed bottom-6 right-6 z-[100]">
-                <div class="bg-slate-800 text-white px-6 py-4 rounded-panel shadow-2xl flex items-center gap-4 border border-slate-700">
-                    <div :class="['w-8 h-8 rounded-full flex items-center justify-center text-sm', toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400']">
+                <div class="px-5 py-3.5 rounded-panel shadow-2xl flex items-center gap-3" style="background:var(--cp-blue-dark);border:1px solid var(--cp-blue);color:#fff">
+                    <div :class="['w-7 h-7 rounded-full flex items-center justify-center text-xs', toast.type === 'success' ? 'bg-emerald-400/20 text-emerald-300' : 'bg-red-400/20 text-red-300']">
                         <i :class="['fas', toast.type === 'success' ? 'fa-check' : 'fa-exclamation']"></i>
                     </div>
-                    <p class="font-bold text-sm tracking-wide">{{ toast.message }}</p>
+                    <p class="font-semibold text-sm">{{ toast.message }}</p>
                 </div>
             </div>
         </transition>
 
     </div>
+
+
