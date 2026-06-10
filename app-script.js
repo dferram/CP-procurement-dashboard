@@ -3,7 +3,7 @@
             setup() {
                 // ─── UI STATE ────────────────────────────────────────────
                 const collapsed = ref(false);
-                const dialog = ref({ show: false, type: 'alert', message: '', inputValue: '', resolve: null });
+                const dialog = ref({ show: false, type: 'alert', message: '', inputValue: '', resolve: null }); // drives the global modal — see dialogConfirm/dialogCancel
                 const currentView = ref('dashboard');
                 const viewMode = ref('workflow');
                 const searchQuery = ref('');
@@ -16,12 +16,15 @@
                 const isSaving = ref(false);
 
                 // ─── EDITOR STATE ─────────────────────────────────────────
-                const activeViewerStage = ref(0);
-                const editingType = ref('project');
-                const editingObject = ref(null);
-                const selectedProject = ref(null);
+                const activeViewerStage = ref(0);   // which phase tab is selected in the editor
+                const editingType = ref('project');  // 'project' or 'template'
+                const editingObject = ref(null);     // the object being edited (deep clone, never the original)
+                const selectedProject = ref(null);   // the project open in the detail panel (read-only view)
 
                 // ─── SORTABLE DOM REFS ────────────────────────────────────
+                // These are template refs bound to the drag-and-drop lists.
+                // We store the SortableJS instances so we can destroy and rebuild them
+                // when the active stage changes (otherwise the old instance goes stale).
                 const phasesSortableRef = ref(null);
                 const tasksSortableRef = ref(null);
                 let phaseSortableInstance = null;
@@ -89,6 +92,9 @@
                     setTimeout(() => { toast.value.show = false; }, 3500);
                 };
 
+                // Promise-based replacements for browser alert/confirm/prompt.
+                // Usage: await showConfirm('Delete?') returns true/false
+                //        await showPrompt('Enter name:') returns string or null
                 const showAlert = (message) => new Promise(resolve => {
                     dialog.value = { show: true, type: 'alert', message, inputValue: '', resolve };
                 });
@@ -99,12 +105,14 @@
                     dialog.value = { show: true, type: 'prompt', message, inputValue: '', resolve };
                 });
 
+                // Called by the OK/Confirm button in the modal
                 const dialogConfirm = () => {
                     const type = dialog.value.type;
                     const val = type === 'prompt' ? dialog.value.inputValue : true;
                     dialog.value.resolve(val);
                     dialog.value.show = false;
                 };
+                // Called by the Cancel button or Esc key
                 const dialogCancel = () => {
                     const type = dialog.value.type;
                     dialog.value.resolve(type === 'prompt' ? null : false);
@@ -112,6 +120,9 @@
                 };
 
                 // ─── BACKEND HELPER ───────────────────────────────────────
+                // Single point of contact for all google.script.run calls.
+                // Always attaches a failure handler — if none is provided, shows a toast.
+                // If google is not defined (local dev), the call is silently skipped.
                 const gsRun = (fnName, args = [], onSuccess = null, onError = null) => {
                     if (typeof google === 'undefined' || !google.script) return;
                     let runner = google.script.run
@@ -124,6 +135,8 @@
                 };
 
                 // ─── DATA FETCHING ────────────────────────────────────
+                // Loads everything from the backend on mount.
+                // Also called manually via the refresh button in the header.
                 const fetchData = () => {
                     isRefreshing.value = true;
                     gsRun('getAppData', [], (data) => {
@@ -151,6 +164,8 @@
                 onMounted(() => fetchData());
 
                 // ─── DRAG & DROP (SortableJS) ─────────────────────────
+                // initSortable wires up the phases list. We use nextTick because the
+                // DOM isn't updated yet when the editor opens.
                 const initSortable = () => {
                     nextTick(() => {
                         if (phasesSortableRef.value) {
@@ -169,6 +184,8 @@
                     });
                 };
 
+                // Rebuild the tasks sortable whenever the active stage changes,
+                // because the task list DOM node is replaced by v-if.
                 watch(activeViewerStage, () => {
                     nextTick(() => {
                         if (tasksSortableRef.value) {
@@ -191,6 +208,8 @@
                 });
 
                 // ─── DICTATION ───────────────────────────────────────
+                // Checks if the mic is active for a specific task field.
+                // Used by the template to show the pulsing mic icon.
                 const isDictating = (taskId, field) => dictationState.value.isListening && dictationState.value.taskId === taskId && dictationState.value.field === field;
 
                 const toggleDictation = (task, fieldName) => {
@@ -216,8 +235,11 @@
                         dictationState.value = { isListening: true, taskId: task._localId, field: fieldName, recognition: recognition };
                     };
 
+                    // Preserve whatever was already typed in the field before dictation started
                     let finalTranscript = task[fieldName] ? task[fieldName] + ' ' : '';
                     
+                    // We show interim results live while the user speaks,
+                    // then lock them in as final when the browser confirms them.
                     recognition.onresult = (event) => {
                         let interimTranscript = '';
                         let newFinal = '';
@@ -266,6 +288,8 @@
                 };
 
                 // ─── GOOGLE DRIVE ─────────────────────────────────────
+                // Parses a full Drive URL pasted by the user and extracts the folder ID.
+                // Once extracted we discard the URL and store only the ID.
                 const extractDriveId = () => {
                     if(!editingObject.value.driveRootUrl) return;
                     const url = editingObject.value.driveRootUrl;
@@ -316,12 +340,14 @@
                     gsRun('deleteDriveItem', [id, isFolder], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
 
+                // Only handles the first dropped file — multi-file drop is not supported.
                 const handleDriveDrop = (e) => {
                     driveDragActive.value = false;
                     const files = e.dataTransfer.files;
                     if(files.length === 0) return;
                     const file = files[0]; 
                     
+                    // Convert to base64 so it can be sent through google.script.run
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         const base64 = event.target.result;
@@ -363,6 +389,8 @@
                 const removeSuggestedPhase = (idx) => config.value.suggestions.splice(idx, 1);
 
                 // ─── FINANCE ──────────────────────────────────────────
+                // Converts the user-entered amount + unit (k/M/none) to a raw number
+                // stored in finances.calculated. That's what stats and KPIs use.
                 const calculateFinance = () => {
                     if(!editingObject.value.finances) return;
                     const f = editingObject.value.finances;
@@ -382,6 +410,8 @@
                 };
 
                 // ─── FOLDERS ──────────────────────────────────────────
+                // Debounced — waits 1s after the last change before hitting the backend.
+                // This avoids a backend call on every keystroke when reordering.
                 let folderSaveTimeout = null;
                 const pushFoldersToBackend = () => {
                     if (typeof google === 'undefined' || !google.script) return;
@@ -426,6 +456,9 @@
                 };
 
                 // ─── COMPUTED: PROJECTS & FOLDERS ────────────────────
+                // Groups already-filtered projects by folder name.
+                // If a project has a folder that doesn't exist in customFolders yet,
+                // it gets added automatically (handles data imported from older versions).
                 const projectsByFolder = computed(() => {
                     const grouped = {};
                     customFolders.value.forEach(f => { grouped[f] = []; });
@@ -441,6 +474,8 @@
                     return grouped;
                 });
 
+                // Dashboard and Database views have independent archived toggles,
+                // so we pick the right one based on which view is active.
                 const filteredProjects = computed(() => {
                     // Decouple Active/Archived filter based on current view
                     const showArch = currentView.value === 'database' ? dbShowArchived.value : dashShowArchived.value;
@@ -450,6 +485,8 @@
                     if (filterStatus.value !== 'ALL') res = res.filter(p => p.cycleStatus === filterStatus.value);
                     if (filterOwner.value !== 'ALL') res = res.filter(p => p.projectOwner === filterOwner.value || (!p.projectOwner && filterOwner.value === 'Unassigned'));
 
+                    // NOTE: date_asc/date_desc use a.id - b.id which is broken for string IDs.
+                    // Fix is tracked in Step 5 of REFACTOR_INDEX.md.
                     res.sort((a, b) => {
                         if (sortBy.value === 'name_asc') return a.title.localeCompare(b.title);
                         if (sortBy.value === 'date_asc') return a.id - b.id; 
@@ -467,6 +504,7 @@
                     return p.stages.reduce((acc, st) => acc + (st.tasks ? st.tasks.filter(t => t.alert).length : 0), 0);
                 };
 
+                // Task-level progress if tasks exist, phase-level if they don't.
                 const calculateProgress = (p) => {
                     if (!p || !p.stages || !p.stages.length) return 0;
                     let totalTasks = 0;
@@ -537,6 +575,8 @@
                 });
 
                 // ─── GANTT ────────────────────────────────────────────
+                // Scans all stage and task dates to find the earliest and latest.
+                // Adds a 7-day buffer on both ends so bars don't touch the edges.
                 const projectDateRange = computed(() => {
                     if (!selectedProject.value || !selectedProject.value.stages || selectedProject.value.stages.length === 0) {
                         return { start: new Date(), end: new Date(new Date().setDate(new Date().getDate() + 30)), totalDays: 30 };
@@ -566,6 +606,7 @@
                     return { start: minDate, end: maxDate, totalDays };
                 });
 
+                // Column headers for the Gantt grid — monthly, weekly, or yearly.
                 const ganttGridColumns = computed(() => {
                     const range = projectDateRange.value;
                     const cols = [];
@@ -589,6 +630,8 @@
                     return cols.length > 0 ? cols : ['Timeline'];
                 });
 
+                // Returns left% and width% for a Gantt bar relative to the project date range.
+                // Minimum width of 2% so short tasks are always visible.
                 const getGanttBarStyle = (item) => {
                     if (!item.startDate || !item.endDate) return { display: 'none' };
                     // Appending T00:00:00 forces parsing as exact local time, avoiding prior-day timezone shifts
@@ -617,6 +660,8 @@
                     viewMode.value = 'workflow';
                 };
 
+                // Always deep-clones before editing so changes don't affect the list until saved.
+                // _localId is added to each stage/task so SortableJS can track them by identity.
                 const openProjectEditor = (p) => {
                     editingType.value = 'project'; 
                     const cloned = JSON.parse(JSON.stringify(p));
@@ -646,10 +691,11 @@
                     viewerOpen.value = true;
                 };
 
+                // Used for lightweight background saves (e.g. task checkbox toggle)
+                // without going through the full save/complete flow.
                 const silentSaveProject = (proj) => {
-                    // Update in background
                     gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(proj))]);
-                    // Sync local state
+                    // Also sync local state immediately so the UI doesn't flash
                     const idx = projects.value.findIndex(x => x.id === proj.id);
                     if (idx > -1) projects.value[idx] = JSON.parse(JSON.stringify(proj));
                 };
@@ -665,8 +711,7 @@
                 const saveChanges = () => {
                     isSaving.value = true;
                     const toSave = JSON.parse(JSON.stringify(editingObject.value));
-                    
-                    // Strip local IDs before saving to DB
+                    // _localId is only used client-side for drag-and-drop tracking, never persisted
                     toSave.stages.forEach(s => { delete s._localId; s.tasks.forEach(t => delete t._localId); });
 
                     if (typeof google !== 'undefined' && google.script) {
@@ -678,6 +723,8 @@
                     }
                 };
 
+                // Called on success from saveChanges.
+                // Updates the list in place if it exists, or prepends if it's new.
                 const completeSave = (savedObj) => {
                     isSaving.value = false;
                     const list = editingType.value === 'project' ? projects.value : templates.value;
@@ -730,6 +777,7 @@
                 };
 
                 // ─── TEMPLATES & CREATE ACTIONS ───────────────────────
+                // Scaffolds a blank project with a default BRIEFING phase.
                 const createNewProject = () => {
                     editingType.value = 'project';
                     editingObject.value = { 
@@ -748,6 +796,8 @@
                     viewerOpen.value = true;
                 };
 
+                // Clones a template's stages into a new project object.
+                // The template itself is not modified.
                 const createProjectFromTemplate = (t) => {
                     editingType.value = 'project';
                     const cloned = JSON.parse(JSON.stringify(t));
@@ -779,6 +829,8 @@
                 };
 
                 // ─── EXPORT ───────────────────────────────────────────
+                // Grabs a DOM element by ID and exports it as PDF or PNG.
+                // html2pdf and html2canvas are loaded via CDN in index.html.
                 const exportView = (type, elementId) => {
                     const element = document.getElementById(elementId);
                     if(!element) return;
