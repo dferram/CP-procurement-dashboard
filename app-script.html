@@ -3,55 +3,57 @@
 
         createApp({
             setup() {
-                // UI States
+                // ─── UI STATE ────────────────────────────────────────────
                 const collapsed = ref(false);
                 const currentView = ref('dashboard');
                 const viewMode = ref('workflow');
                 const searchQuery = ref('');
                 const viewerOpen = ref(false);
                 const detailsOpen = ref(false);
-                
-                // Toggle States
                 const dashShowArchived = ref(false);
-                const dbShowArchived = ref(false); 
-                
+                const dbShowArchived = ref(false);
+                const toast = ref({ show: false, message: '', type: 'success' });
+                const isRefreshing = ref(false);
+                const isSaving = ref(false);
+
+                // ─── EDITOR STATE ─────────────────────────────────────────
                 const activeViewerStage = ref(0);
                 const editingType = ref('project');
                 const editingObject = ref(null);
                 const selectedProject = ref(null);
-                const isRefreshing = ref(false);
-                const isSaving = ref(false);
-                
-                const toast = ref({ show: false, message: '', type: 'success' });
 
-                // Sortable DOM Refs
+                // ─── SORTABLE DOM REFS ────────────────────────────────────
                 const phasesSortableRef = ref(null);
                 const tasksSortableRef = ref(null);
                 let phaseSortableInstance = null;
                 let taskSortableInstance = null;
 
-                // Drive UI States
+                // ─── DRIVE STATE ──────────────────────────────────────────
                 const isDriveLoading = ref(false);
                 const driveDragActive = ref(false);
                 const driveFiles = ref([]);
                 const driveFolders = ref([]);
 
-                // Feature States & Filters
+                // ─── FILTER & SORT STATE ──────────────────────────────────
                 const filterStatus = ref('ALL');
                 const filterOwner = ref('ALL');
                 const sortBy = ref('date_desc');
+
+                // ─── GANTT STATE ──────────────────────────────────────────
                 const ganttScale = ref('monthly');
+
+                // ─── FOLDER STATE ─────────────────────────────────────────
                 const folderState = ref({});
                 const customFolders = ref(['Optimization', 'Sustainability', 'Marketing', 'Uncategorized']);
-                
-                // Voice Dictation State
+
+                // ─── DICTATION STATE ──────────────────────────────────────
                 const dictationState = ref({ isListening: false, taskId: null, field: null, recognition: null });
 
-                // Data Models
+                // ─── DATA MODELS ──────────────────────────────────────────
                 const projects = ref([]);
                 const templates = ref([]);
-                
-                // Config from GAS
+
+                // ─── CONFIG STATE (loaded from GAS on mount) ──────────────
                 const config = ref({
                     cpTeam: ['Alex S.', 'Elena R.'],
                     externalTeam: ['Mike T.', 'John D.', 'Agency X'],
@@ -64,11 +66,11 @@
                         { title: 'LOGISTICS', icon: 'fa-truck' }
                     ]
                 });
-                
                 const newCpMember = ref('');
                 const newExternalMember = ref('');
                 const newSuggestion = ref({ title: '', icon: 'fa-tasks' });
 
+                // ─── UI CONSTANTS ─────────────────────────────────────────
                 const iconOptions = [
                     'fa-clipboard-list', 'fa-pencil-ruler', 'fa-box', 'fa-vial', 
                     'fa-truck', 'fa-leaf', 'fa-check-double', 'fa-rocket', 
@@ -85,11 +87,13 @@
                     { id: 'config', icon: 'fa-cogs', label: 'Configuration' }
                 ];
 
+                // ─── COMPUTED: UI ─────────────────────────────────────
                 const viewTitle = computed(() => {
                     const found = menuItems.find(m => m.id === currentView.value);
                     return found ? found.label : 'PackTrack';
                 });
 
+                // ─── UTILITIES ────────────────────────────────────────────
                 const generateLocalId = () => 'l_' + Math.random().toString(36).substr(2, 9);
 
                 const showToast = (msg, type = 'success') => {
@@ -97,7 +101,7 @@
                     setTimeout(() => { toast.value.show = false; }, 3500);
                 };
 
-                // --- DATA FETCHING (Google Sheets Integration) ---
+                // ─── DATA FETCHING ────────────────────────────────────
                 const fetchData = () => {
                     isRefreshing.value = true;
                     if (typeof google !== 'undefined' && google.script) {
@@ -130,7 +134,7 @@
 
                 onMounted(() => fetchData());
 
-                // --- DRAG & DROP INITIALIZATION (SortableJS) ---
+                // ─── DRAG & DROP (SortableJS) ─────────────────────────
                 const initSortable = () => {
                     nextTick(() => {
                         if (phasesSortableRef.value) {
@@ -170,7 +174,7 @@
                     if(val && editingType.value === 'project') initSortable();
                 });
 
-                // --- SPEECH TO TEXT DICTATION ---
+                // ─── DICTATION ───────────────────────────────────────
                 const isDictating = (taskId, field) => dictationState.value.isListening && dictationState.value.taskId === taskId && dictationState.value.field === field;
 
                 const toggleDictation = (task, fieldName) => {
@@ -229,7 +233,7 @@
                     }
                 };
 
-                // --- GOOGLE CHAT WEBHOOK ---
+                // ─── GOOGLE CHAT ──────────────────────────────────────
                 const sendChat = (context, messageText) => {
                     if(!messageText || messageText.trim() === '') {
                         showToast("Message cannot be empty.", "error");
@@ -250,7 +254,7 @@
                     }
                 };
 
-                // --- GOOGLE DRIVE FILE MANAGEMENT LOGIC ---
+                // ─── GOOGLE DRIVE ─────────────────────────────────────
                 const extractDriveId = () => {
                     if(!editingObject.value.driveRootUrl) return;
                     const url = editingObject.value.driveRootUrl;
@@ -340,7 +344,7 @@
                     return 'fa-file-alt text-slate-400';
                 };
 
-                // --- CONFIGURATION SAVING ---
+                // ─── CONFIGURATION ───────────────────────────────────
                 const saveConfig = () => {
                     if (typeof google !== 'undefined' && google.script) {
                         google.script.run.withSuccessHandler(() => {
@@ -370,7 +374,7 @@
                 };
                 const removeSuggestedPhase = (idx) => config.value.suggestions.splice(idx, 1);
 
-                // --- FINANCE LOGIC ---
+                // ─── FINANCE ──────────────────────────────────────────
                 const calculateFinance = () => {
                     if(!editingObject.value.finances) return;
                     const f = editingObject.value.finances;
@@ -389,7 +393,7 @@
                     return sign + abs.toFixed(2);
                 };
 
-                // --- FOLDER LOGIC ---
+                // ─── FOLDERS ──────────────────────────────────────────
                 let folderSaveTimeout = null;
                 const pushFoldersToBackend = () => {
                     if (typeof google === 'undefined' || !google.script) return;
@@ -433,7 +437,7 @@
                     if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(project)));
                 };
 
-                // --- COMPUTED VIEWS ---
+                // ─── COMPUTED: PROJECTS & FOLDERS ────────────────────
                 const projectsByFolder = computed(() => {
                     const grouped = {};
                     customFolders.value.forEach(f => { grouped[f] = []; });
@@ -544,7 +548,7 @@
                     return { total, active, archived, alerts, ftgTotal: formatFinance(ftgTotalNum), onCostTotal: formatFinance(onCostTotalNum), ftgCount, onCostCount };
                 });
 
-                // --- GANTT CHART LOGIC (Percentage Based Refactor) ---
+                // ─── GANTT ────────────────────────────────────────────
                 const projectDateRange = computed(() => {
                     if (!selectedProject.value || !selectedProject.value.stages || selectedProject.value.stages.length === 0) {
                         return { start: new Date(), end: new Date(new Date().setDate(new Date().getDate() + 30)), totalDays: 30 };
@@ -614,6 +618,7 @@
                 };
 
 
+                // ─── PROJECT VIEWER & EDITOR ──────────────────────────
                 const getStatusColor = (s) => s === 'COMPLETED' ? 'bg-emerald-500' : (s === 'IN PROGRESS' ? 'bg-blue-500' : 'bg-slate-300');
                 const getStatusCycleColor = (s) => s === 'ON TRACK' ? 'bg-emerald-100 text-emerald-700' : (s === 'DELAYED' ? 'bg-amber-100 text-amber-700' : (s === 'AT RISK' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'));
 
@@ -713,6 +718,7 @@
                     if(confirm("Delete this phase?")) editingObject.value.stages.splice(idx, 1);
                 };
 
+                // ─── DATE HELPERS ─────────────────────────────────────
                 const formatDate = (d) => {
                     if(!d) return '--';
                     // Splitting allows robust rendering ignoring timezone shifts
@@ -746,6 +752,7 @@
                     editingObject.value.stages[activeViewerStage.value].tasks.push({ _localId: generateLocalId(), desc: '', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate:'', endDate:'' });
                 };
 
+                // ─── TEMPLATES & CREATE ACTIONS ───────────────────────
                 const createNewProject = () => {
                     editingType.value = 'project';
                     editingObject.value = { 
@@ -794,6 +801,7 @@
                     if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(p)));
                 };
 
+                // ─── EXPORT ───────────────────────────────────────────
                 const exportView = (type, elementId) => {
                     const element = document.getElementById(elementId);
                     if(!element) return;
