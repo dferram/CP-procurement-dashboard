@@ -1,10 +1,9 @@
-﻿    <script>
-        const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
-
+﻿const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
         createApp({
             setup() {
                 // ─── UI STATE ────────────────────────────────────────────
                 const collapsed = ref(false);
+                const dialog = ref({ show: false, type: 'alert', message: '', inputValue: '', resolve: null }); // drives the global modal — see dialogConfirm/dialogCancel
                 const currentView = ref('dashboard');
                 const viewMode = ref('workflow');
                 const searchQuery = ref('');
@@ -17,12 +16,15 @@
                 const isSaving = ref(false);
 
                 // ─── EDITOR STATE ─────────────────────────────────────────
-                const activeViewerStage = ref(0);
-                const editingType = ref('project');
-                const editingObject = ref(null);
-                const selectedProject = ref(null);
+                const activeViewerStage = ref(0);   // which phase tab is selected in the editor
+                const editingType = ref('project');  // 'project' or 'template'
+                const editingObject = ref(null);     // the object being edited (deep clone, never the original)
+                const selectedProject = ref(null);   // the project open in the detail panel (read-only view)
 
                 // ─── SORTABLE DOM REFS ────────────────────────────────────
+                // These are template refs bound to the drag-and-drop lists.
+                // We store the SortableJS instances so we can destroy and rebuild them
+                // when the active stage changes (otherwise the old instance goes stale).
                 const phasesSortableRef = ref(null);
                 const tasksSortableRef = ref(null);
                 let phaseSortableInstance = null;
@@ -44,7 +46,7 @@
 
                 // ─── FOLDER STATE ─────────────────────────────────────────
                 const folderState = ref({});
-                const customFolders = ref(['Optimization', 'Sustainability', 'Marketing', 'Uncategorized']);
+                const customFolders = ref(['Uncategorized']);
 
                 // ─── DICTATION STATE ──────────────────────────────────────
                 const dictationState = ref({ isListening: false, taskId: null, field: null, recognition: null });
@@ -54,18 +56,7 @@
                 const templates = ref([]);
 
                 // ─── CONFIG STATE (loaded from GAS on mount) ──────────────
-                const config = ref({
-                    cpTeam: ['Alex S.', 'Elena R.'],
-                    externalTeam: ['Mike T.', 'John D.', 'Agency X'],
-                    suggestions: [
-                        { title: 'INITIAL BRIEFING', icon: 'fa-clipboard-list' },
-                        { title: 'CAD DESIGN', icon: 'fa-pencil-ruler' },
-                        { title: 'PROTOTYPING', icon: 'fa-box' },
-                        { title: 'LAB TESTING', icon: 'fa-microscope' },
-                        { title: 'SUSTAINABILITY', icon: 'fa-leaf' },
-                        { title: 'LOGISTICS', icon: 'fa-truck' }
-                    ]
-                });
+                const config = ref({ cpTeam: [], externalTeam: [], suggestions: [] });
                 const newCpMember = ref('');
                 const newExternalMember = ref('');
                 const newSuggestion = ref({ title: '', icon: 'fa-tasks' });
@@ -101,40 +92,80 @@
                     setTimeout(() => { toast.value.show = false; }, 3500);
                 };
 
+                // Promise-based replacements for browser alert/confirm/prompt.
+                // Usage: await showConfirm('Delete?') returns true/false
+                //        await showPrompt('Enter name:') returns string or null
+                const showAlert = (message) => new Promise(resolve => {
+                    dialog.value = { show: true, type: 'alert', message, inputValue: '', resolve };
+                });
+                const showConfirm = (message) => new Promise(resolve => {
+                    dialog.value = { show: true, type: 'confirm', message, inputValue: '', resolve };
+                });
+                const showPrompt = (message) => new Promise(resolve => {
+                    dialog.value = { show: true, type: 'prompt', message, inputValue: '', resolve };
+                });
+
+                // Called by the OK/Confirm button in the modal
+                const dialogConfirm = () => {
+                    const type = dialog.value.type;
+                    const val = type === 'prompt' ? dialog.value.inputValue : true;
+                    dialog.value.resolve(val);
+                    dialog.value.show = false;
+                };
+                // Called by the Cancel button or Esc key
+                const dialogCancel = () => {
+                    const type = dialog.value.type;
+                    dialog.value.resolve(type === 'prompt' ? null : false);
+                    dialog.value.show = false;
+                };
+
+                // ─── BACKEND HELPER ───────────────────────────────────────
+                // Single point of contact for all google.script.run calls.
+                // Always attaches a failure handler — if none is provided, shows a toast.
+                // If google is not defined (local dev), the call is silently skipped.
+                const gsRun = (fnName, args = [], onSuccess = null, onError = null) => {
+                    if (typeof google === 'undefined' || !google.script) return;
+                    let runner = google.script.run
+                        .withSuccessHandler((result) => { if (onSuccess) onSuccess(result); })
+                        .withFailureHandler((err) => {
+                            if (onError) onError(err);
+                            else showToast(err.message || 'An error occurred.', 'error');
+                        });
+                    runner[fnName](...args);
+                };
+
                 // ─── DATA FETCHING ────────────────────────────────────
+                // Loads everything from the backend on mount.
+                // Also called manually via the refresh button in the header.
                 const fetchData = () => {
                     isRefreshing.value = true;
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler((data) => {
-                            projects.value = data.projects || [];
-                            templates.value = data.templates || [];
-                            
-                            if (data.folders && data.folders.length > 0) {
-                                const fs = {};
-                                const fNames = [];
-                                data.folders.forEach(f => {
-                                    fNames.push(f.name);
-                                    fs[f.name] = f.isOpen;
-                                });
-                                customFolders.value = fNames;
-                                folderState.value = fs;
-                            }
-                            if (data.config) {
-                                config.value = data.config;
-                            }
-                            isRefreshing.value = false;
-                        }).withFailureHandler((err) => {
-                            console.error('Fetch Error:', err);
-                            isRefreshing.value = false;
-                        }).getAppData();
-                    } else {
-                        setTimeout(() => isRefreshing.value = false, 800);
-                    }
+                    gsRun('getAppData', [], (data) => {
+                        projects.value = data.projects || [];
+                        templates.value = data.templates || [];
+                        if (data.folders && data.folders.length > 0) {
+                            const fs = {};
+                            const fNames = [];
+                            data.folders.forEach(f => {
+                                fNames.push(f.name);
+                                fs[f.name] = f.isOpen;
+                            });
+                            customFolders.value = fNames;
+                            folderState.value = fs;
+                        }
+                        if (data.config) config.value = data.config;
+                        isRefreshing.value = false;
+                    }, (err) => {
+                        showToast('Error loading data: ' + err.message, 'error');
+                        isRefreshing.value = false;
+                    });
+                    if (typeof google === 'undefined' || !google.script) setTimeout(() => isRefreshing.value = false, 800);
                 };
 
                 onMounted(() => fetchData());
 
                 // ─── DRAG & DROP (SortableJS) ─────────────────────────
+                // initSortable wires up the phases list. We use nextTick because the
+                // DOM isn't updated yet when the editor opens.
                 const initSortable = () => {
                     nextTick(() => {
                         if (phasesSortableRef.value) {
@@ -153,6 +184,8 @@
                     });
                 };
 
+                // Rebuild the tasks sortable whenever the active stage changes,
+                // because the task list DOM node is replaced by v-if.
                 watch(activeViewerStage, () => {
                     nextTick(() => {
                         if (tasksSortableRef.value) {
@@ -175,12 +208,14 @@
                 });
 
                 // ─── DICTATION ───────────────────────────────────────
+                // Checks if the mic is active for a specific task field.
+                // Used by the template to show the pulsing mic icon.
                 const isDictating = (taskId, field) => dictationState.value.isListening && dictationState.value.taskId === taskId && dictationState.value.field === field;
 
                 const toggleDictation = (task, fieldName) => {
                     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                     if (!SpeechRecognition) {
-                        alert("Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+                        showToast("Speech Recognition not supported. Please use Chrome, Edge, or Safari.", "error");
                         return;
                     }
                     
@@ -200,8 +235,11 @@
                         dictationState.value = { isListening: true, taskId: task._localId, field: fieldName, recognition: recognition };
                     };
 
+                    // Preserve whatever was already typed in the field before dictation started
                     let finalTranscript = task[fieldName] ? task[fieldName] + ' ' : '';
                     
+                    // We show interim results live while the user speaks,
+                    // then lock them in as final when the browser confirms them.
                     recognition.onresult = (event) => {
                         let interimTranscript = '';
                         let newFinal = '';
@@ -229,7 +267,7 @@
                     try {
                         recognition.start();
                     } catch (e) {
-                        alert("Microphone access blocked. If running inside Google Apps Script, the iFrame sandbox might prevent voice dictation. Consider opening the Web App directly.");
+                        showToast("Microphone access blocked. Try opening the Web App directly.", "error");
                     }
                 };
 
@@ -242,19 +280,16 @@
 
                     const payloadText = `­*Update in Project: ${editingObject.value.code || 'Draft'} - ${editingObject.value.title}*\n*Context:* ${context}\n*Message:* ${messageText}`;
                     
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler((res) => {
-                            if(res.success) showToast("Sent to Google Chat!", "success");
-                            else showToast("Failed to send: " + (res.error || "No webhook URL configured on server."), "error");
-                        }).withFailureHandler((err) => {
-                            showToast("Error: " + err.message, "error");
-                        }).sendGoogleChatNotification(payloadText);
-                    } else {
-                        showToast("Mock: Sent to Google Chat!", "success");
-                    }
+                    gsRun('sendGoogleChatNotification', [payloadText], (res) => {
+                        if(res.success) showToast("Sent to Google Chat!", "success");
+                        else showToast("Failed to send: " + (res.error || "No webhook URL configured on server."), "error");
+                    });
+                    if (typeof google === 'undefined' || !google.script) showToast("Mock: Sent to Google Chat!", "success");
                 };
 
                 // ─── GOOGLE DRIVE ─────────────────────────────────────
+                // Parses a full Drive URL pasted by the user and extracts the folder ID.
+                // Once extracted we discard the URL and store only the ID.
                 const extractDriveId = () => {
                     if(!editingObject.value.driveRootUrl) return;
                     const url = editingObject.value.driveRootUrl;
@@ -265,7 +300,7 @@
                         editingObject.value.driveRootUrl = '';
                         fetchDriveContents(match[1]);
                     } else {
-                        alert("Could not extract a valid Google Drive Folder ID from that URL.");
+                        showToast("Could not extract a valid Google Drive Folder ID from that URL.", "error");
                     }
                 };
 
@@ -274,64 +309,50 @@
                     isDriveLoading.value = true;
                     driveFolders.value = []; 
                     driveFiles.value = [];
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler((res) => {
-                            driveFolders.value = [...res.folders];
-                            driveFiles.value = [...res.files];
-                            isDriveLoading.value = false;
-                        }).withFailureHandler((err) => {
-                            console.error(err);
-                            alert("Failed to fetch Drive folder. Make sure you have permission and the ID is correct.");
-                            isDriveLoading.value = false;
-                        }).getDriveContents(folderId);
-                    } else {
-                        setTimeout(() => {
-                            driveFiles.value = [{id:'1', name:'Briefing_Mock.pdf', mimeType:'application/pdf', url:'#'}];
-                            isDriveLoading.value = false;
-                        }, 500);
-                    }
+                    gsRun('getDriveContents', [folderId], (res) => {
+                        driveFolders.value = [...res.folders];
+                        driveFiles.value = [...res.files];
+                        isDriveLoading.value = false;
+                    }, (err) => {
+                        showToast('Failed to fetch Drive folder: ' + err.message, 'error');
+                        isDriveLoading.value = false;
+                    });
+                    if (typeof google === 'undefined' || !google.script) setTimeout(() => {
+                        driveFiles.value = [{id:'1', name:'Briefing_Mock.pdf', mimeType:'application/pdf', url:'#'}];
+                        isDriveLoading.value = false;
+                    }, 500);
                 };
 
                 watch(() => editingObject.value?.driveFolderId, (newId) => {
                     if(newId && viewerOpen.value && editingType.value === 'project') fetchDriveContents(newId);
                 });
 
-                const createDriveSubFolder = () => {
-                    const name = prompt("Enter subfolder name:");
+                const createDriveSubFolder = async () => {
+                    const name = await showPrompt("Enter subfolder name:");
                     if(!name || name.trim()==='') return;
                     isDriveLoading.value = true;
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler(() => {
-                            fetchDriveContents(editingObject.value.driveFolderId);
-                        }).createDriveSubFolder(editingObject.value.driveFolderId, name);
-                    }
+                    gsRun('createDriveSubFolder', [editingObject.value.driveFolderId, name.trim()], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
 
-                const deleteDriveItem = (id, isFolder) => {
-                    if(!confirm(`Delete this ${isFolder ? 'folder' : 'file'}?`)) return;
+                const deleteDriveItem = async (id, isFolder) => {
+                    if(!await showConfirm(`Delete this ${isFolder ? 'folder' : 'file'}?`)) return;
                     isDriveLoading.value = true;
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler(() => {
-                            fetchDriveContents(editingObject.value.driveFolderId);
-                        }).deleteDriveItem(id, isFolder);
-                    }
+                    gsRun('deleteDriveItem', [id, isFolder], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
 
+                // Only handles the first dropped file — multi-file drop is not supported.
                 const handleDriveDrop = (e) => {
                     driveDragActive.value = false;
                     const files = e.dataTransfer.files;
                     if(files.length === 0) return;
                     const file = files[0]; 
                     
+                    // Convert to base64 so it can be sent through google.script.run
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         const base64 = event.target.result;
                         isDriveLoading.value = true;
-                        if (typeof google !== 'undefined' && google.script) {
-                            google.script.run.withSuccessHandler(() => {
-                                fetchDriveContents(editingObject.value.driveFolderId);
-                            }).uploadFileToDrive(editingObject.value.driveFolderId, base64, file.name, file.type);
-                        }
+                        gsRun('uploadFileToDrive', [editingObject.value.driveFolderId, base64, file.name, file.type], () => fetchDriveContents(editingObject.value.driveFolderId));
                     };
                     reader.readAsDataURL(file);
                 };
@@ -346,15 +367,8 @@
 
                 // ─── CONFIGURATION ───────────────────────────────────
                 const saveConfig = () => {
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler(() => {
-                            showToast("Configuration Saved Successfully!");
-                        }).withFailureHandler((err) => {
-                            showToast("Error saving config: " + err.message, "error");
-                        }).saveConfig(JSON.parse(JSON.stringify(config.value)));
-                    } else {
-                        showToast("Mock Config Saved Successfully!");
-                    }
+                    gsRun('saveConfig', [JSON.parse(JSON.stringify(config.value))], () => showToast("Configuration Saved Successfully!"));
+                    if (typeof google === 'undefined' || !google.script) showToast("Mock Config Saved Successfully!");
                 };
 
                 const addTeamMember = (listKey, nameRef) => {
@@ -375,6 +389,8 @@
                 const removeSuggestedPhase = (idx) => config.value.suggestions.splice(idx, 1);
 
                 // ─── FINANCE ──────────────────────────────────────────
+                // Converts the user-entered amount + unit (k/M/none) to a raw number
+                // stored in finances.calculated. That's what stats and KPIs use.
                 const calculateFinance = () => {
                     if(!editingObject.value.finances) return;
                     const f = editingObject.value.finances;
@@ -394,6 +410,8 @@
                 };
 
                 // ─── FOLDERS ──────────────────────────────────────────
+                // Debounced — waits 1s after the last change before hitting the backend.
+                // This avoids a backend call on every keystroke when reordering.
                 let folderSaveTimeout = null;
                 const pushFoldersToBackend = () => {
                     if (typeof google === 'undefined' || !google.script) return;
@@ -402,7 +420,7 @@
                         const payload = customFolders.value.map((fName, index) => {
                             return { name: fName, isOpen: folderState.value[fName] === true, order: index };
                         });
-                        google.script.run.saveFoldersToSheet(payload);
+                        gsRun('saveFoldersToSheet', [payload]);
                     }, 1000);
                 };
 
@@ -411,33 +429,36 @@
 
                 const toggleFolder = (fName) => folderState.value[fName] = !folderState.value[fName];
 
-                const createNewFolder = () => {
-                    const name = prompt("Enter new folder name:");
+                const createNewFolder = async () => {
+                    const name = await showPrompt("Enter new folder name:");
                     if (name && name.trim() !== '' && !customFolders.value.includes(name.trim())) {
                         customFolders.value.push(name.trim());
                         folderState.value[name.trim()] = true;
                     }
                 };
 
-                const deleteFolder = (fName) => {
+                const deleteFolder = async (fName) => {
                     if (fName === 'Uncategorized') return;
-                    if (confirm(`Delete folder "${fName}"? Projects will move to Uncategorized.`)) {
+                    if (await showConfirm(`Delete folder "${fName}"? Projects will move to Uncategorized.`)) {
                         customFolders.value = customFolders.value.filter(f => f !== fName);
                         delete folderState.value[fName];
                         projects.value.forEach(p => {
                             if (p.folder === fName) {
                                 p.folder = 'Uncategorized';
-                                if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(p)));
+                                gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(p))]);
                             }
                         });
                     }
                 };
 
                 const handleMoveFolder = (project) => {
-                    if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(project)));
+                    gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(project))]);
                 };
 
                 // ─── COMPUTED: PROJECTS & FOLDERS ────────────────────
+                // Groups already-filtered projects by folder name.
+                // If a project has a folder that doesn't exist in customFolders yet,
+                // it gets added automatically (handles data imported from older versions).
                 const projectsByFolder = computed(() => {
                     const grouped = {};
                     customFolders.value.forEach(f => { grouped[f] = []; });
@@ -453,6 +474,8 @@
                     return grouped;
                 });
 
+                // Dashboard and Database views have independent archived toggles,
+                // so we pick the right one based on which view is active.
                 const filteredProjects = computed(() => {
                     // Decouple Active/Archived filter based on current view
                     const showArch = currentView.value === 'database' ? dbShowArchived.value : dashShowArchived.value;
@@ -464,8 +487,8 @@
 
                     res.sort((a, b) => {
                         if (sortBy.value === 'name_asc') return a.title.localeCompare(b.title);
-                        if (sortBy.value === 'date_asc') return a.id - b.id; 
-                        if (sortBy.value === 'date_desc') return b.id - a.id;
+                        if (sortBy.value === 'date_asc') return new Date(a.createdAt) - new Date(b.createdAt);
+                        if (sortBy.value === 'date_desc') return new Date(b.createdAt) - new Date(a.createdAt);
                         if (sortBy.value === 'status') return a.cycleStatus.localeCompare(b.cycleStatus);
                         return 0;
                     });
@@ -479,6 +502,7 @@
                     return p.stages.reduce((acc, st) => acc + (st.tasks ? st.tasks.filter(t => t.alert).length : 0), 0);
                 };
 
+                // Task-level progress if tasks exist, phase-level if they don't.
                 const calculateProgress = (p) => {
                     if (!p || !p.stages || !p.stages.length) return 0;
                     let totalTasks = 0;
@@ -549,72 +573,78 @@
                 });
 
                 // ─── GANTT ────────────────────────────────────────────
+                // Shared date parser — always UTC (T00:00:00Z) to match DateService._parseDate on the backend.
+                const ganttParseDate = (str) => {
+                    const d = new Date(str + 'T00:00:00Z');
+                    return isNaN(d.getTime()) ? null : d;
+                };
+
+                // Mirrors DateService.getProjectDateRange — extracts all stage+task dates,
+                // picks min/max, then adds a 7-day buffer on each side.
                 const projectDateRange = computed(() => {
-                    if (!selectedProject.value || !selectedProject.value.stages || selectedProject.value.stages.length === 0) {
-                        return { start: new Date(), end: new Date(new Date().setDate(new Date().getDate() + 30)), totalDays: 30 };
-                    }
-                    
-                    let minDate = null, maxDate = null;
-                    
-                    selectedProject.value.stages.forEach(s => {
-                        if (s.startDate) { let d = new Date(s.startDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                        if (s.endDate) { let d = new Date(s.endDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                        if (s.tasks) s.tasks.forEach(t => {
-                            if (t.startDate) { let d = new Date(t.startDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                            if (t.endDate) { let d = new Date(t.endDate + 'T00:00:00'); if(!minDate || d < minDate) minDate = d; if(!maxDate || d > maxDate) maxDate = d; }
-                        });
-                    });
-                    
-                    if (!minDate || !maxDate) {
-                        minDate = new Date();
-                        maxDate = new Date(new Date().setDate(new Date().getDate() + 30));
+                    const stages = selectedProject.value?.stages;
+                    if (!stages || stages.length === 0) {
+                        const today = new Date();
+                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
                     }
 
-                    // Add a visual 7 day buffer before and after
-                    minDate = new Date(minDate.setDate(minDate.getDate() - 7));
-                    maxDate = new Date(maxDate.setDate(maxDate.getDate() + 7));
-                    
-                    const totalDays = Math.max(1, (maxDate - minDate) / (1000 * 60 * 60 * 24));
+                    const timestamps = [];
+                    stages.forEach(s => {
+                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) timestamps.push(d.getTime()); }
+                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) timestamps.push(d.getTime()); }
+                        (s.tasks || []).forEach(t => {
+                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) timestamps.push(d.getTime()); }
+                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) timestamps.push(d.getTime()); }
+                        });
+                    });
+
+                    if (timestamps.length === 0) {
+                        const today = new Date();
+                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
+                    }
+
+                    const BUFFER = 7 * 864e5;
+                    const minDate = new Date(Math.min(...timestamps) - BUFFER);
+                    const maxDate = new Date(Math.max(...timestamps) + BUFFER);
+                    const totalDays = Math.max(1, Math.round((maxDate - minDate) / 864e5));
                     return { start: minDate, end: maxDate, totalDays };
                 });
 
+                // Mirrors GanttService.generateGridColumns — weekly/monthly/yearly column labels.
                 const ganttGridColumns = computed(() => {
-                    const range = projectDateRange.value;
+                    const { start, end, totalDays } = projectDateRange.value;
                     const cols = [];
-                    
-                    if (ganttScale.value === 'monthly') {
-                        let curr = new Date(range.start);
-                        while(curr < range.end) {
-                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
-                            curr.setMonth(curr.getMonth() + 1);
-                        }
-                    } else if (ganttScale.value === 'weekly') {
+                    if (ganttScale.value === 'weekly') {
                         let w = 1;
-                        for(let i = 0; i < range.totalDays; i += 7) cols.push('W' + w++);
-                    } else {
-                        let curr = new Date(range.start);
-                        while(curr.getFullYear() <= range.end.getFullYear()) {
+                        for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
+                    } else if (ganttScale.value === 'yearly') {
+                        let curr = new Date(start);
+                        while (curr.getFullYear() <= end.getFullYear()) {
                             cols.push(curr.getFullYear().toString());
                             curr.setFullYear(curr.getFullYear() + 1);
+                        }
+                    } else {
+                        let curr = new Date(start);
+                        while (curr < end) {
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
+                            curr.setMonth(curr.getMonth() + 1);
                         }
                     }
                     return cols.length > 0 ? cols : ['Timeline'];
                 });
 
+                // Mirrors GanttService.calculateBarStyle — left% and width% relative to the date range.
+                // Min width 2% so single-day tasks are always visible.
                 const getGanttBarStyle = (item) => {
                     if (!item.startDate || !item.endDate) return { display: 'none' };
-                    // Appending T00:00:00 forces parsing as exact local time, avoiding prior-day timezone shifts
-                    const start = new Date(item.startDate + 'T00:00:00');
-                    const end = new Date(item.endDate + 'T00:00:00');
-                    const range = projectDateRange.value; 
-                    
-                    let leftPct = ((start - range.start) / (1000 * 60 * 60 * 24)) / range.totalDays * 100;
-                    let widthPct = ((end - start) / (1000 * 60 * 60 * 24)) / range.totalDays * 100;
-                    
-                    leftPct = Math.max(0, Math.min(100, leftPct));
-                    widthPct = Math.max(2, widthPct); // Minimum 2% width so it's always visible
-
-                    return { left: leftPct + '%', width: widthPct + '%' };
+                    const start = ganttParseDate(item.startDate);
+                    const end   = ganttParseDate(item.endDate);
+                    if (!start || !end) return { display: 'none' };
+                    const range = projectDateRange.value;
+                    const totalMs = range.totalDays * 864e5;
+                    const leftPct  = Math.max(0, Math.min(100, ((start - range.start) / totalMs) * 100));
+                    const widthPct = Math.max(2, ((end - start) / totalMs) * 100);
+                    return { left: leftPct.toFixed(2) + '%', width: widthPct.toFixed(2) + '%' };
                 };
 
 
@@ -629,6 +659,8 @@
                     viewMode.value = 'workflow';
                 };
 
+                // Always deep-clones before editing so changes don't affect the list until saved.
+                // _localId is added to each stage/task so SortableJS can track them by identity.
                 const openProjectEditor = (p) => {
                     editingType.value = 'project'; 
                     const cloned = JSON.parse(JSON.stringify(p));
@@ -658,49 +690,40 @@
                     viewerOpen.value = true;
                 };
 
+                // Used for lightweight background saves (e.g. task checkbox toggle)
+                // without going through the full save/complete flow.
                 const silentSaveProject = (proj) => {
-                    // Update in background
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(proj)));
-                    }
-                    // Sync local state
+                    gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(proj))]);
+                    // Also sync local state immediately so the UI doesn't flash
                     const idx = projects.value.findIndex(x => x.id === proj.id);
                     if (idx > -1) projects.value[idx] = JSON.parse(JSON.stringify(proj));
                 };
 
-                const confirmDeleteProject = (p) => {
-                    if (confirm(`Are you sure you want to permanently delete the project "${p.title}"?\n\nThis action cannot be undone and will remove all associated data from the database.`)) {
+                const confirmDeleteProject = async (p) => {
+                    if (await showConfirm(`Permanently delete "${p.title}"? This cannot be undone.`)) {
                         projects.value = projects.value.filter(proj => proj.id !== p.id);
                         if (detailsOpen.value) detailsOpen.value = false;
-                        if (typeof google !== 'undefined' && google.script) {
-                            google.script.run.deleteProjectFromSheet(p.id);
-                        }
+                        gsRun('deleteProjectFromSheet', [p.id]);
                     }
                 };
 
                 const saveChanges = () => {
                     isSaving.value = true;
                     const toSave = JSON.parse(JSON.stringify(editingObject.value));
-                    
-                    // Strip local IDs before saving to DB
+                    // _localId is only used client-side for drag-and-drop tracking, never persisted
                     toSave.stages.forEach(s => { delete s._localId; s.tasks.forEach(t => delete t._localId); });
 
                     if (typeof google !== 'undefined' && google.script) {
-                        if (editingType.value === 'project') {
-                            google.script.run.withSuccessHandler((savedObj) => {
-                                completeSave(savedObj);
-                            }).saveProjectToSheet(toSave);
-                        } else {
-                            google.script.run.withSuccessHandler((savedObj) => {
-                                completeSave(savedObj);
-                            }).saveTemplateToSheet(toSave);
-                        }
+                        const fn = editingType.value === 'project' ? 'saveProjectToSheet' : 'saveTemplateToSheet';
+                        gsRun(fn, [toSave], (savedObj) => completeSave(savedObj), (err) => { isSaving.value = false; showToast('Save failed: ' + err.message, 'error'); });
                     } else {
                         if(!toSave.code && editingType.value === 'project') toSave.code = "PRJ-MOCK";
                         setTimeout(() => completeSave(toSave), 500);
                     }
                 };
 
+                // Called on success from saveChanges.
+                // Updates the list in place if it exists, or prepends if it's new.
                 const completeSave = (savedObj) => {
                     isSaving.value = false;
                     const list = editingType.value === 'project' ? projects.value : templates.value;
@@ -714,27 +737,25 @@
                     }
                 };
 
-                const deleteStage = (idx) => {
-                    if(confirm("Delete this phase?")) editingObject.value.stages.splice(idx, 1);
+                const deleteStage = async (idx) => {
+                    if(await showConfirm("Delete this phase?")) editingObject.value.stages.splice(idx, 1);
                 };
 
                 // ─── DATE HELPERS ─────────────────────────────────────
+                // Mirrors DateService.formatDate — parses as UTC to avoid off-by-one day shifts.
                 const formatDate = (d) => {
                     if(!d) return '--';
-                    // Splitting allows robust rendering ignoring timezone shifts
-                    const parts = d.split('-');
-                    if (parts.length === 3) {
-                        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-                        return dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-                    }
-                    return d;
+                    const dateObj = new Date(d + 'T00:00:00Z');
+                    if (isNaN(dateObj.getTime())) return d;
+                    return dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
                 };
 
+                // Mirrors DateService.calculateDays — UTC to avoid timezone-based day miscounts.
                 const calculateDays = (s, e) => {
                     if (!s || !e) return 0;
-                    const start = new Date(s + 'T00:00:00');
-                    const end = new Date(e + 'T00:00:00');
-                    return Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)));
+                    const start = new Date(s + 'T00:00:00Z');
+                    const end   = new Date(e + 'T00:00:00Z');
+                    return Math.max(0, Math.round((end - start) / 864e5));
                 };
 
                 const addStage = () => {
@@ -753,6 +774,7 @@
                 };
 
                 // ─── TEMPLATES & CREATE ACTIONS ───────────────────────
+                // Scaffolds a blank project with a default BRIEFING phase.
                 const createNewProject = () => {
                     editingType.value = 'project';
                     editingObject.value = { 
@@ -771,6 +793,8 @@
                     viewerOpen.value = true;
                 };
 
+                // Clones a template's stages into a new project object.
+                // The template itself is not modified.
                 const createProjectFromTemplate = (t) => {
                     editingType.value = 'project';
                     const cloned = JSON.parse(JSON.stringify(t));
@@ -790,18 +814,20 @@
                     currentView.value = 'dashboard';
                 };
 
-                const deleteTemplate = (id) => {
-                    if(!confirm('Delete this template?')) return;
-                    if(typeof google !== 'undefined' && google.script) google.script.run.deleteTemplateFromSheet(id);
+                const deleteTemplate = async (id) => {
+                    if(!await showConfirm('Delete this template?')) return;
+                    gsRun('deleteTemplateFromSheet', [id]);
                     templates.value = templates.value.filter(t => t.id !== id);
                 };
 
                 const toggleArchive = (p) => {
                     p.archived = !p.archived;
-                    if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(p)));
+                    gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(p))]);
                 };
 
                 // ─── EXPORT ───────────────────────────────────────────
+                // Grabs a DOM element by ID and exports it as PDF or PNG.
+                // html2pdf and html2canvas are loaded via CDN in index.html.
                 const exportView = (type, elementId) => {
                     const element = document.getElementById(elementId);
                     if(!element) return;
@@ -829,6 +855,7 @@
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
                     filterStatus, filterOwner, sortBy, ganttScale, ganttGridColumns, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
@@ -836,4 +863,3 @@
                 };
             }
         }).mount('#app');
-    </script>
