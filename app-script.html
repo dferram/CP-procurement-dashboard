@@ -44,7 +44,7 @@
 
                 // ─── FOLDER STATE ─────────────────────────────────────────
                 const folderState = ref({});
-                const customFolders = ref(['Optimization', 'Sustainability', 'Marketing', 'Uncategorized']);
+                const customFolders = ref(['Uncategorized']);
 
                 // ─── DICTATION STATE ──────────────────────────────────────
                 const dictationState = ref({ isListening: false, taskId: null, field: null, recognition: null });
@@ -54,18 +54,7 @@
                 const templates = ref([]);
 
                 // ─── CONFIG STATE (loaded from GAS on mount) ──────────────
-                const config = ref({
-                    cpTeam: ['Alex S.', 'Elena R.'],
-                    externalTeam: ['Mike T.', 'John D.', 'Agency X'],
-                    suggestions: [
-                        { title: 'INITIAL BRIEFING', icon: 'fa-clipboard-list' },
-                        { title: 'CAD DESIGN', icon: 'fa-pencil-ruler' },
-                        { title: 'PROTOTYPING', icon: 'fa-box' },
-                        { title: 'LAB TESTING', icon: 'fa-microscope' },
-                        { title: 'SUSTAINABILITY', icon: 'fa-leaf' },
-                        { title: 'LOGISTICS', icon: 'fa-truck' }
-                    ]
-                });
+                const config = ref({ cpTeam: [], externalTeam: [], suggestions: [] });
                 const newCpMember = ref('');
                 const newExternalMember = ref('');
                 const newSuggestion = ref({ title: '', icon: 'fa-tasks' });
