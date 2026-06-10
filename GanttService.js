@@ -4,42 +4,40 @@
  * Responsabilidad única: Cálculos y renderizado de Gantt charts
  */
 
-const GanttService = {
+class GanttService {
   /**
    * Genera columnas de grid según escala
    * @param {Object} dateRange - {start, end, totalDays}
    * @param {string} scale - 'weekly', 'monthly', 'yearly'
    * @return {Array} Etiquetas de columnas
    */
-  generateGridColumns: function(dateRange, scale) {
+  static generateGridColumns(dateRange, scale) {
     if (!dateRange || !dateRange.start || !dateRange.end) {
       return ['Timeline'];
     }
 
     scale = (scale || 'monthly').toLowerCase();
 
-    switch(scale) {
-      case 'weekly':
-        return this.generateWeeklyColumns(dateRange);
-      case 'monthly':
-        return this.generateMonthlyColumns(dateRange);
-      case 'yearly':
-        return this.generateYearlyColumns(dateRange);
+    switch (scale) {
+      case 'weekly':  return GanttService.generateWeeklyColumns(dateRange);
+      case 'monthly': return GanttService.generateMonthlyColumns(dateRange);
+      case 'yearly':  return GanttService.generateYearlyColumns(dateRange);
       default:
-        Logger.log('⚠️ Escala desconocida: ' + scale);
+        Logger.log('Escala desconocida: ' + scale);
         return ['Timeline'];
     }
-  },
+  }
 
   /**
    * Columnas semanales
+   * @param {Object} dateRange
+   * @return {Array}
    */
-  generateWeeklyColumns: function(dateRange) {
+  static generateWeeklyColumns(dateRange) {
     const columns = [];
     let weekNum = 1;
-    const start = new Date(dateRange.start);
     const end = new Date(dateRange.end);
-    let current = new Date(start);
+    let current = new Date(dateRange.start);
 
     while (current < end) {
       columns.push('W' + weekNum);
@@ -48,37 +46,35 @@ const GanttService = {
     }
 
     return columns.length > 0 ? columns : ['Timeline'];
-  },
+  }
 
   /**
    * Columnas mensuales
+   * @param {Object} dateRange
+   * @return {Array}
    */
-  generateMonthlyColumns: function(dateRange) {
+  static generateMonthlyColumns(dateRange) {
     const columns = [];
-    const start = new Date(dateRange.start);
     const end = new Date(dateRange.end);
-    let current = new Date(start);
+    let current = new Date(dateRange.start);
 
     while (current < end) {
-      const monthStr = current.toLocaleString('en-US', { 
-        month: 'short', 
-        year: '2-digit' 
-      });
-      columns.push(monthStr);
+      columns.push(current.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
       current.setMonth(current.getMonth() + 1);
     }
 
     return columns.length > 0 ? columns : ['Timeline'];
-  },
+  }
 
   /**
    * Columnas anuales
+   * @param {Object} dateRange
+   * @return {Array}
    */
-  generateYearlyColumns: function(dateRange) {
+  static generateYearlyColumns(dateRange) {
     const columns = [];
-    const start = new Date(dateRange.start);
     const end = new Date(dateRange.end);
-    let current = new Date(start);
+    let current = new Date(dateRange.start);
 
     while (current.getFullYear() <= end.getFullYear()) {
       columns.push(current.getFullYear().toString());
@@ -86,7 +82,7 @@ const GanttService = {
     }
 
     return columns.length > 0 ? columns : ['Timeline'];
-  },
+  }
 
   /**
    * Calcula posición y ancho de barra
@@ -94,7 +90,7 @@ const GanttService = {
    * @param {Object} dateRange - {start, end, totalDays}
    * @return {Object} {left, width, display}
    */
-  calculateBarStyle: function(item, dateRange) {
+  static calculateBarStyle(item, dateRange) {
     if (!item || !item.startDate || !item.endDate || !dateRange) {
       return { display: 'none' };
     }
@@ -112,11 +108,8 @@ const GanttService = {
       const startMs = start - rangeStart;
       const durationMs = end - start;
 
-      let leftPct = (startMs / totalMs) * 100;
-      let widthPct = (durationMs / totalMs) * 100;
-
-      leftPct = Math.max(0, Math.min(100, leftPct));
-      widthPct = Math.max(2, widthPct); // Mínimo 2% para visibilidad
+      const leftPct = Math.max(0, Math.min(100, (startMs / totalMs) * 100));
+      const widthPct = Math.max(2, (durationMs / totalMs) * 100);
 
       return {
         left: leftPct.toFixed(2) + '%',
@@ -124,29 +117,28 @@ const GanttService = {
         display: 'block'
       };
     } catch (e) {
-      Logger.log('❌ Error en calculateBarStyle: ' + e);
+      Logger.log('❌ Error en calculateBarStyle: ' + e.message);
       return { display: 'none' };
     }
-  },
+  }
 
   /**
    * Valida integridad de datos
    * @param {Object} item
    * @return {Object} {isValid, errors}
    */
-  validateGanttItem: function(item) {
+  static validateGanttItem(item) {
     const errors = [];
 
     if (!item) {
       errors.push('Item es null o undefined');
-      return { isValid: false, errors: errors };
+      return { isValid: false, errors };
     }
 
     if (!item.startDate && !item.endDate) {
       errors.push('Faltan ambas fechas');
     }
 
-    // ✅ CORREGIDO: Usar DateService en lugar de DateUtils
     if (item.startDate && !DateService.isValidDateFormat(item.startDate)) {
       errors.push('Formato fecha inicio inválido: ' + item.startDate);
     }
@@ -163,9 +155,6 @@ const GanttService = {
       }
     }
 
-    return { 
-      isValid: errors.length === 0, 
-      errors: errors 
-    };
+    return { isValid: errors.length === 0, errors };
   }
-};
+}
