@@ -500,3 +500,15 @@ function deleteDriveItem(id, isFolder) {
     return { error: e.message };
   }
 }
+
+// =====================================================
+// HTML TEMPLATE HELPER
+// =====================================================
+
+/**
+ * Inyecta el contenido de un archivo HTML parcial dentro de un template.
+ * Usado con la sintaxis <?!= include('nombre-archivo') ?> en index.html
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
