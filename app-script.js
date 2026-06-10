@@ -1,10 +1,9 @@
-﻿    <script>
-        const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
-
+﻿const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
         createApp({
             setup() {
                 // ─── UI STATE ────────────────────────────────────────────
                 const collapsed = ref(false);
+                const dialog = ref({ show: false, type: 'alert', message: '', inputValue: '', resolve: null });
                 const currentView = ref('dashboard');
                 const viewMode = ref('workflow');
                 const searchQuery = ref('');
@@ -88,6 +87,28 @@
                 const showToast = (msg, type = 'success') => {
                     toast.value = { show: true, message: msg, type };
                     setTimeout(() => { toast.value.show = false; }, 3500);
+                };
+
+                const showAlert = (message) => new Promise(resolve => {
+                    dialog.value = { show: true, type: 'alert', message, inputValue: '', resolve };
+                });
+                const showConfirm = (message) => new Promise(resolve => {
+                    dialog.value = { show: true, type: 'confirm', message, inputValue: '', resolve };
+                });
+                const showPrompt = (message) => new Promise(resolve => {
+                    dialog.value = { show: true, type: 'prompt', message, inputValue: '', resolve };
+                });
+
+                const dialogConfirm = () => {
+                    const type = dialog.value.type;
+                    const val = type === 'prompt' ? dialog.value.inputValue : true;
+                    dialog.value.resolve(val);
+                    dialog.value.show = false;
+                };
+                const dialogCancel = () => {
+                    const type = dialog.value.type;
+                    dialog.value.resolve(type === 'prompt' ? null : false);
+                    dialog.value.show = false;
                 };
 
                 // ─── BACKEND HELPER ───────────────────────────────────────
@@ -175,7 +196,7 @@
                 const toggleDictation = (task, fieldName) => {
                     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                     if (!SpeechRecognition) {
-                        alert("Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+                        showToast("Speech Recognition not supported. Please use Chrome, Edge, or Safari.", "error");
                         return;
                     }
                     
@@ -224,7 +245,7 @@
                     try {
                         recognition.start();
                     } catch (e) {
-                        alert("Microphone access blocked. If running inside Google Apps Script, the iFrame sandbox might prevent voice dictation. Consider opening the Web App directly.");
+                        showToast("Microphone access blocked. Try opening the Web App directly.", "error");
                     }
                 };
 
@@ -255,7 +276,7 @@
                         editingObject.value.driveRootUrl = '';
                         fetchDriveContents(match[1]);
                     } else {
-                        alert("Could not extract a valid Google Drive Folder ID from that URL.");
+                        showToast("Could not extract a valid Google Drive Folder ID from that URL.", "error");
                     }
                 };
 
@@ -282,15 +303,15 @@
                     if(newId && viewerOpen.value && editingType.value === 'project') fetchDriveContents(newId);
                 });
 
-                const createDriveSubFolder = () => {
-                    const name = prompt("Enter subfolder name:");
+                const createDriveSubFolder = async () => {
+                    const name = await showPrompt("Enter subfolder name:");
                     if(!name || name.trim()==='') return;
                     isDriveLoading.value = true;
-                    gsRun('createDriveSubFolder', [editingObject.value.driveFolderId, name], () => fetchDriveContents(editingObject.value.driveFolderId));
+                    gsRun('createDriveSubFolder', [editingObject.value.driveFolderId, name.trim()], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
 
-                const deleteDriveItem = (id, isFolder) => {
-                    if(!confirm(`Delete this ${isFolder ? 'folder' : 'file'}?`)) return;
+                const deleteDriveItem = async (id, isFolder) => {
+                    if(!await showConfirm(`Delete this ${isFolder ? 'folder' : 'file'}?`)) return;
                     isDriveLoading.value = true;
                     gsRun('deleteDriveItem', [id, isFolder], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
@@ -378,17 +399,17 @@
 
                 const toggleFolder = (fName) => folderState.value[fName] = !folderState.value[fName];
 
-                const createNewFolder = () => {
-                    const name = prompt("Enter new folder name:");
+                const createNewFolder = async () => {
+                    const name = await showPrompt("Enter new folder name:");
                     if (name && name.trim() !== '' && !customFolders.value.includes(name.trim())) {
                         customFolders.value.push(name.trim());
                         folderState.value[name.trim()] = true;
                     }
                 };
 
-                const deleteFolder = (fName) => {
+                const deleteFolder = async (fName) => {
                     if (fName === 'Uncategorized') return;
-                    if (confirm(`Delete folder "${fName}"? Projects will move to Uncategorized.`)) {
+                    if (await showConfirm(`Delete folder "${fName}"? Projects will move to Uncategorized.`)) {
                         customFolders.value = customFolders.value.filter(f => f !== fName);
                         delete folderState.value[fName];
                         projects.value.forEach(p => {
@@ -633,8 +654,8 @@
                     if (idx > -1) projects.value[idx] = JSON.parse(JSON.stringify(proj));
                 };
 
-                const confirmDeleteProject = (p) => {
-                    if (confirm(`Are you sure you want to permanently delete the project "${p.title}"?\n\nThis action cannot be undone and will remove all associated data from the database.`)) {
+                const confirmDeleteProject = async (p) => {
+                    if (await showConfirm(`Permanently delete "${p.title}"? This cannot be undone.`)) {
                         projects.value = projects.value.filter(proj => proj.id !== p.id);
                         if (detailsOpen.value) detailsOpen.value = false;
                         gsRun('deleteProjectFromSheet', [p.id]);
@@ -670,8 +691,8 @@
                     }
                 };
 
-                const deleteStage = (idx) => {
-                    if(confirm("Delete this phase?")) editingObject.value.stages.splice(idx, 1);
+                const deleteStage = async (idx) => {
+                    if(await showConfirm("Delete this phase?")) editingObject.value.stages.splice(idx, 1);
                 };
 
                 // ─── DATE HELPERS ─────────────────────────────────────
@@ -746,8 +767,8 @@
                     currentView.value = 'dashboard';
                 };
 
-                const deleteTemplate = (id) => {
-                    if(!confirm('Delete this template?')) return;
+                const deleteTemplate = async (id) => {
+                    if(!await showConfirm('Delete this template?')) return;
                     gsRun('deleteTemplateFromSheet', [id]);
                     templates.value = templates.value.filter(t => t.id !== id);
                 };
@@ -785,6 +806,7 @@
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
                     filterStatus, filterOwner, sortBy, ganttScale, ganttGridColumns, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
@@ -792,4 +814,3 @@
                 };
             }
         }).mount('#app');
-    </script>
