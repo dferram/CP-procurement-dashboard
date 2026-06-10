@@ -1541,10 +1541,6 @@
 
                 // --- GOOGLE CHAT WEBHOOK ---
                 const sendChat = (context, messageText) => {
-                    if(!editingObject.value.chatWebhook || editingObject.value.chatWebhook.trim() === '') {
-                        showToast("Please save a Webhook URL first.", "error");
-                        return;
-                    }
                     if(!messageText || messageText.trim() === '') {
                         showToast("Message cannot be empty.", "error");
                         return;
@@ -1555,8 +1551,10 @@
                     if (typeof google !== 'undefined' && google.script) {
                         google.script.run.withSuccessHandler((res) => {
                             if(res.success) showToast("Sent to Google Chat!", "success");
-                            else showToast("Failed to send: " + res.error, "error");
-                        }).sendGoogleChatNotification(editingObject.value.chatWebhook, payloadText);
+                            else showToast("Failed to send: " + (res.error || "No webhook URL configured on server."), "error");
+                        }).withFailureHandler((err) => {
+                            showToast("Error: " + err.message, "error");
+                        }).sendGoogleChatNotification(payloadText);
                     } else {
                         showToast("Mock: Sent to Google Chat!", "success");
                     }
@@ -1657,7 +1655,9 @@
                     if (typeof google !== 'undefined' && google.script) {
                         google.script.run.withSuccessHandler(() => {
                             showToast("Configuration Saved Successfully!");
-                        }).saveConfigToSheet(JSON.parse(JSON.stringify(config.value)));
+                        }).withFailureHandler((err) => {
+                            showToast("Error saving config: " + err.message, "error");
+                        }).saveConfig(JSON.parse(JSON.stringify(config.value)));
                     } else {
                         showToast("Mock Config Saved Successfully!");
                     }

@@ -76,24 +76,81 @@ function setupDatabase() {
 
 /**
  * Obtiene todos los datos de la aplicación
+ * Deserializa filas de Sheets en objetos usables por el frontend
  */
 function getAppData() {
   try {
     const sheetRepo = new SheetRepository();
-    
+
     const payload = {
-      projects: sheetRepo.getAllData('Projects'),
-      templates: sheetRepo.getAllData('Templates'),
-      folders: sheetRepo.getAllData('Folders'),
-      config: ConfigService.getFullConfig()
+      projects:  sheetRepo.getAllData('Projects').map(_deserializeProject),
+      templates: sheetRepo.getAllData('Templates').map(_deserializeTemplate),
+      folders:   sheetRepo.getAllData('Folders').map(_deserializeFolder),
+      config:    ConfigService.getFullConfig()
     };
-    
+
     Logger.log(`App data retrieved: ${payload.projects.length} projects`);
     return payload;
   } catch (e) {
     Logger.log(`Error en getAppData: ${e.message}`);
     return { error: e.message };
   }
+}
+
+/**
+ * Mapea una fila de la hoja Projects a un objeto
+ * @private
+ */
+function _deserializeProject(row) {
+  const _tryParse = (val, fallback) => {
+    try { return val ? JSON.parse(val) : fallback; } catch(e) { return fallback; }
+  };
+  return {
+    id:           row[0]  || '',
+    code:         row[1]  || '',
+    title:        row[2]  || '',
+    category:     row[3]  || '',
+    status:       row[4]  || 'active',
+    owner:        _tryParse(row[5], {}),
+    members:      _tryParse(row[6], []),
+    externalTeam: _tryParse(row[7], []),
+    stages:       _tryParse(row[8], []),
+    driveFolderId:row[9]  || '',
+    webhookUrl:   row[10] || '',
+    createdAt:    row[11] || '',
+    updatedAt:    row[12] || ''
+  };
+}
+
+/**
+ * Mapea una fila de la hoja Templates a un objeto
+ * @private
+ */
+function _deserializeTemplate(row) {
+  const _tryParse = (val, fallback) => {
+    try { return val ? JSON.parse(val) : fallback; } catch(e) { return fallback; }
+  };
+  return {
+    id:        row[0] || '',
+    name:      row[1] || '',
+    category:  row[2] || '',
+    stages:    _tryParse(row[3], []),
+    createdAt: row[4] || ''
+  };
+}
+
+/**
+ * Mapea una fila de la hoja Folders a un objeto
+ * @private
+ */
+function _deserializeFolder(row) {
+  return {
+    id:           row[0] || '',
+    projectId:    row[1] || '',
+    name:         row[2] || '',
+    driveFolderId:row[3] || '',
+    createdAt:    row[4] || ''
+  };
 }
 
 /**
@@ -150,6 +207,132 @@ function saveProject(project) {
   } catch (e) {
     Logger.log(`❌ Error en saveProject: ${e.message}`);
     return { error: e.message };
+  }
+}
+
+/**
+ * Alias público para saveProject — usado por el frontend
+ * Guarda o actualiza un proyecto; si trae chatWebhook lo persiste en Configuration
+ * @param {Object} project
+ * @return {Object} Proyecto guardado o {error}
+ */
+function saveProjectToSheet(project) {
+  try {
+    if (project.chatWebhook !== undefined) {
+      saveChatWebhookUrl(project.chatWebhook);
+    }
+    return saveProject(project);
+  } catch (e) {
+    Logger.log(`❌ Error en saveProjectToSheet: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Guarda o actualiza una plantilla en la hoja Templates
+ * @param {Object} template - {id?, name, category, stages}
+ * @return {Object} Plantilla guardada o {error}
+ */
+function saveTemplateToSheet(template) {
+  try {
+    const sheetRepo = new SheetRepository();
+
+    if (!template.id) {
+      template.id = 'TPL-' + Date.now();
+      template.createdAt = new Date().toISOString();
+    }
+
+    const rowData = [
+      template.id,
+      template.name     || '',
+      template.category || '',
+      JSON.stringify(template.stages || []),
+      template.createdAt
+    ];
+
+    const existing = sheetRepo.findRow('Templates', template.id, 0);
+    if (existing) {
+      sheetRepo.updateRow('Templates', existing.rowIndex, rowData);
+      Logger.log(`✅ Template actualizado: ${template.name}`);
+    } else {
+      sheetRepo.appendRow('Templates', rowData);
+      Logger.log(`✅ Template creado: ${template.name}`);
+    }
+
+    return template;
+  } catch (e) {
+    Logger.log(`❌ Error en saveTemplateToSheet: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Elimina un proyecto de la hoja Projects
+ * @param {string} projectId
+ * @return {Object} {success: boolean}
+ */
+function deleteProjectFromSheet(projectId) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const existing = sheetRepo.findRow('Projects', projectId, 0);
+    if (!existing) return { success: false, error: 'Project not found' };
+    sheetRepo.deleteRow('Projects', existing.rowIndex);
+    Logger.log(`✅ Proyecto eliminado: ${projectId}`);
+    return { success: true };
+  } catch (e) {
+    Logger.log(`❌ Error en deleteProjectFromSheet: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Elimina una plantilla de la hoja Templates
+ * @param {string} templateId
+ * @return {Object} {success: boolean}
+ */
+function deleteTemplateFromSheet(templateId) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const existing = sheetRepo.findRow('Templates', templateId, 0);
+    if (!existing) return { success: false, error: 'Template not found' };
+    sheetRepo.deleteRow('Templates', existing.rowIndex);
+    Logger.log(`✅ Template eliminado: ${templateId}`);
+    return { success: true };
+  } catch (e) {
+    Logger.log(`❌ Error en deleteTemplateFromSheet: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Guarda el estado de carpetas en la hoja Folders
+ * @param {Array} folders - [{name, isOpen, order}]
+ * @return {boolean}
+ */
+function saveFoldersToSheet(folders) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Folders');
+    if (!sheet) return false;
+
+    const lastRow = sheetRepo.getLastRow('Folders');
+    if (lastRow > 1) sheetRepo.clearRange('Folders', 2, lastRow - 1, 5);
+
+    folders.forEach(f => {
+      sheetRepo.appendRow('Folders', [
+        f.name || '',
+        '',
+        f.name || '',
+        '',
+        new Date().toISOString()
+      ]);
+    });
+
+    Logger.log(`✅ Folders guardados: ${folders.length}`);
+    return true;
+  } catch (e) {
+    Logger.log(`❌ Error en saveFoldersToSheet: ${e.message}`);
+    return false;
   }
 }
 
