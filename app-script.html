@@ -90,35 +90,41 @@
                     setTimeout(() => { toast.value.show = false; }, 3500);
                 };
 
+                // ─── BACKEND HELPER ───────────────────────────────────────
+                const gsRun = (fnName, args = [], onSuccess = null, onError = null) => {
+                    if (typeof google === 'undefined' || !google.script) return;
+                    let runner = google.script.run
+                        .withSuccessHandler((result) => { if (onSuccess) onSuccess(result); })
+                        .withFailureHandler((err) => {
+                            if (onError) onError(err);
+                            else showToast(err.message || 'An error occurred.', 'error');
+                        });
+                    runner[fnName](...args);
+                };
+
                 // ─── DATA FETCHING ────────────────────────────────────
                 const fetchData = () => {
                     isRefreshing.value = true;
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler((data) => {
-                            projects.value = data.projects || [];
-                            templates.value = data.templates || [];
-                            
-                            if (data.folders && data.folders.length > 0) {
-                                const fs = {};
-                                const fNames = [];
-                                data.folders.forEach(f => {
-                                    fNames.push(f.name);
-                                    fs[f.name] = f.isOpen;
-                                });
-                                customFolders.value = fNames;
-                                folderState.value = fs;
-                            }
-                            if (data.config) {
-                                config.value = data.config;
-                            }
-                            isRefreshing.value = false;
-                        }).withFailureHandler((err) => {
-                            console.error('Fetch Error:', err);
-                            isRefreshing.value = false;
-                        }).getAppData();
-                    } else {
-                        setTimeout(() => isRefreshing.value = false, 800);
-                    }
+                    gsRun('getAppData', [], (data) => {
+                        projects.value = data.projects || [];
+                        templates.value = data.templates || [];
+                        if (data.folders && data.folders.length > 0) {
+                            const fs = {};
+                            const fNames = [];
+                            data.folders.forEach(f => {
+                                fNames.push(f.name);
+                                fs[f.name] = f.isOpen;
+                            });
+                            customFolders.value = fNames;
+                            folderState.value = fs;
+                        }
+                        if (data.config) config.value = data.config;
+                        isRefreshing.value = false;
+                    }, (err) => {
+                        showToast('Error loading data: ' + err.message, 'error');
+                        isRefreshing.value = false;
+                    });
+                    if (typeof google === 'undefined' || !google.script) setTimeout(() => isRefreshing.value = false, 800);
                 };
 
                 onMounted(() => fetchData());
@@ -231,16 +237,11 @@
 
                     const payloadText = `­*Update in Project: ${editingObject.value.code || 'Draft'} - ${editingObject.value.title}*\n*Context:* ${context}\n*Message:* ${messageText}`;
                     
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler((res) => {
-                            if(res.success) showToast("Sent to Google Chat!", "success");
-                            else showToast("Failed to send: " + (res.error || "No webhook URL configured on server."), "error");
-                        }).withFailureHandler((err) => {
-                            showToast("Error: " + err.message, "error");
-                        }).sendGoogleChatNotification(payloadText);
-                    } else {
-                        showToast("Mock: Sent to Google Chat!", "success");
-                    }
+                    gsRun('sendGoogleChatNotification', [payloadText], (res) => {
+                        if(res.success) showToast("Sent to Google Chat!", "success");
+                        else showToast("Failed to send: " + (res.error || "No webhook URL configured on server."), "error");
+                    });
+                    if (typeof google === 'undefined' || !google.script) showToast("Mock: Sent to Google Chat!", "success");
                 };
 
                 // ─── GOOGLE DRIVE ─────────────────────────────────────
@@ -263,22 +264,18 @@
                     isDriveLoading.value = true;
                     driveFolders.value = []; 
                     driveFiles.value = [];
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler((res) => {
-                            driveFolders.value = [...res.folders];
-                            driveFiles.value = [...res.files];
-                            isDriveLoading.value = false;
-                        }).withFailureHandler((err) => {
-                            console.error(err);
-                            alert("Failed to fetch Drive folder. Make sure you have permission and the ID is correct.");
-                            isDriveLoading.value = false;
-                        }).getDriveContents(folderId);
-                    } else {
-                        setTimeout(() => {
-                            driveFiles.value = [{id:'1', name:'Briefing_Mock.pdf', mimeType:'application/pdf', url:'#'}];
-                            isDriveLoading.value = false;
-                        }, 500);
-                    }
+                    gsRun('getDriveContents', [folderId], (res) => {
+                        driveFolders.value = [...res.folders];
+                        driveFiles.value = [...res.files];
+                        isDriveLoading.value = false;
+                    }, (err) => {
+                        showToast('Failed to fetch Drive folder: ' + err.message, 'error');
+                        isDriveLoading.value = false;
+                    });
+                    if (typeof google === 'undefined' || !google.script) setTimeout(() => {
+                        driveFiles.value = [{id:'1', name:'Briefing_Mock.pdf', mimeType:'application/pdf', url:'#'}];
+                        isDriveLoading.value = false;
+                    }, 500);
                 };
 
                 watch(() => editingObject.value?.driveFolderId, (newId) => {
@@ -289,21 +286,13 @@
                     const name = prompt("Enter subfolder name:");
                     if(!name || name.trim()==='') return;
                     isDriveLoading.value = true;
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler(() => {
-                            fetchDriveContents(editingObject.value.driveFolderId);
-                        }).createDriveSubFolder(editingObject.value.driveFolderId, name);
-                    }
+                    gsRun('createDriveSubFolder', [editingObject.value.driveFolderId, name], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
 
                 const deleteDriveItem = (id, isFolder) => {
                     if(!confirm(`Delete this ${isFolder ? 'folder' : 'file'}?`)) return;
                     isDriveLoading.value = true;
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler(() => {
-                            fetchDriveContents(editingObject.value.driveFolderId);
-                        }).deleteDriveItem(id, isFolder);
-                    }
+                    gsRun('deleteDriveItem', [id, isFolder], () => fetchDriveContents(editingObject.value.driveFolderId));
                 };
 
                 const handleDriveDrop = (e) => {
@@ -316,11 +305,7 @@
                     reader.onload = (event) => {
                         const base64 = event.target.result;
                         isDriveLoading.value = true;
-                        if (typeof google !== 'undefined' && google.script) {
-                            google.script.run.withSuccessHandler(() => {
-                                fetchDriveContents(editingObject.value.driveFolderId);
-                            }).uploadFileToDrive(editingObject.value.driveFolderId, base64, file.name, file.type);
-                        }
+                        gsRun('uploadFileToDrive', [editingObject.value.driveFolderId, base64, file.name, file.type], () => fetchDriveContents(editingObject.value.driveFolderId));
                     };
                     reader.readAsDataURL(file);
                 };
@@ -335,15 +320,8 @@
 
                 // ─── CONFIGURATION ───────────────────────────────────
                 const saveConfig = () => {
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.withSuccessHandler(() => {
-                            showToast("Configuration Saved Successfully!");
-                        }).withFailureHandler((err) => {
-                            showToast("Error saving config: " + err.message, "error");
-                        }).saveConfig(JSON.parse(JSON.stringify(config.value)));
-                    } else {
-                        showToast("Mock Config Saved Successfully!");
-                    }
+                    gsRun('saveConfig', [JSON.parse(JSON.stringify(config.value))], () => showToast("Configuration Saved Successfully!"));
+                    if (typeof google === 'undefined' || !google.script) showToast("Mock Config Saved Successfully!");
                 };
 
                 const addTeamMember = (listKey, nameRef) => {
@@ -391,7 +369,7 @@
                         const payload = customFolders.value.map((fName, index) => {
                             return { name: fName, isOpen: folderState.value[fName] === true, order: index };
                         });
-                        google.script.run.saveFoldersToSheet(payload);
+                        gsRun('saveFoldersToSheet', [payload]);
                     }, 1000);
                 };
 
@@ -416,14 +394,14 @@
                         projects.value.forEach(p => {
                             if (p.folder === fName) {
                                 p.folder = 'Uncategorized';
-                                if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(p)));
+                                gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(p))]);
                             }
                         });
                     }
                 };
 
                 const handleMoveFolder = (project) => {
-                    if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(project)));
+                    gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(project))]);
                 };
 
                 // ─── COMPUTED: PROJECTS & FOLDERS ────────────────────
@@ -649,9 +627,7 @@
 
                 const silentSaveProject = (proj) => {
                     // Update in background
-                    if (typeof google !== 'undefined' && google.script) {
-                        google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(proj)));
-                    }
+                    gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(proj))]);
                     // Sync local state
                     const idx = projects.value.findIndex(x => x.id === proj.id);
                     if (idx > -1) projects.value[idx] = JSON.parse(JSON.stringify(proj));
@@ -661,9 +637,7 @@
                     if (confirm(`Are you sure you want to permanently delete the project "${p.title}"?\n\nThis action cannot be undone and will remove all associated data from the database.`)) {
                         projects.value = projects.value.filter(proj => proj.id !== p.id);
                         if (detailsOpen.value) detailsOpen.value = false;
-                        if (typeof google !== 'undefined' && google.script) {
-                            google.script.run.deleteProjectFromSheet(p.id);
-                        }
+                        gsRun('deleteProjectFromSheet', [p.id]);
                     }
                 };
 
@@ -675,15 +649,8 @@
                     toSave.stages.forEach(s => { delete s._localId; s.tasks.forEach(t => delete t._localId); });
 
                     if (typeof google !== 'undefined' && google.script) {
-                        if (editingType.value === 'project') {
-                            google.script.run.withSuccessHandler((savedObj) => {
-                                completeSave(savedObj);
-                            }).saveProjectToSheet(toSave);
-                        } else {
-                            google.script.run.withSuccessHandler((savedObj) => {
-                                completeSave(savedObj);
-                            }).saveTemplateToSheet(toSave);
-                        }
+                        const fn = editingType.value === 'project' ? 'saveProjectToSheet' : 'saveTemplateToSheet';
+                        gsRun(fn, [toSave], (savedObj) => completeSave(savedObj), (err) => { isSaving.value = false; showToast('Save failed: ' + err.message, 'error'); });
                     } else {
                         if(!toSave.code && editingType.value === 'project') toSave.code = "PRJ-MOCK";
                         setTimeout(() => completeSave(toSave), 500);
@@ -781,13 +748,13 @@
 
                 const deleteTemplate = (id) => {
                     if(!confirm('Delete this template?')) return;
-                    if(typeof google !== 'undefined' && google.script) google.script.run.deleteTemplateFromSheet(id);
+                    gsRun('deleteTemplateFromSheet', [id]);
                     templates.value = templates.value.filter(t => t.id !== id);
                 };
 
                 const toggleArchive = (p) => {
                     p.archived = !p.archived;
-                    if (typeof google !== 'undefined' && google.script) google.script.run.saveProjectToSheet(JSON.parse(JSON.stringify(p)));
+                    gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(p))]);
                 };
 
                 // ─── EXPORT ───────────────────────────────────────────
