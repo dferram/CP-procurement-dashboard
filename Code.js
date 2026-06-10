@@ -18,27 +18,54 @@ function doGet() {
 
 /**
  * Inicializa la base de datos por primera vez
- * Crea todas las hojas necesarias
+ * Crea todas las hojas necesarias con sus headers
  */
 function setupDatabase() {
   try {
-    const sheetRepo = new SheetRepository();
-    
-    // Crear hojas si no existen
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheets = ['Projects', 'Templates', 'Folders', 'Configuration'];
-    
-    sheets.forEach(sheetName => {
-      if (!ss.getSheetByName(sheetName)) {
-        Logger.log(`📝 Creando hoja: ${sheetName}`);
-        // Las hojas se crearán cuando se usen
+
+    const SHEET_SCHEMAS = {
+      Projects: ['id', 'code', 'title', 'category', 'status', 'owner', 'members',
+                 'externalTeam', 'stages', 'driveFolderId', 'webhookUrl',
+                 'createdAt', 'updatedAt'],
+      Templates: ['id', 'name', 'category', 'stages', 'createdAt'],
+      Folders:   ['id', 'projectId', 'name', 'driveFolderId', 'createdAt'],
+      Configuration: ['key', 'value']
+    };
+
+    const CONFIG_DEFAULTS = [
+      ['NEXT_PRJ_ID', 1],
+      ['DRIVE_ROOT_FOLDER_ID', 'PASTE_YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE'],
+      ['CHAT_WEBHOOK_URL', ''],
+      ['CP_TEAM', '[]'],
+      ['EXTERNAL_TEAM', '[]'],
+      ['SUGGESTIONS', '[]']
+    ];
+
+    Object.entries(SHEET_SCHEMAS).forEach(([sheetName, headers]) => {
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        sheet.getRange(1, 1, 1, headers.length)
+          .setFontWeight('bold')
+          .setBackground('#1F2937')
+          .setFontColor('#FFFFFF');
+        Logger.log(`Hoja creada: ${sheetName}`);
+
+        if (sheetName === 'Configuration') {
+          sheet.getRange(2, 1, CONFIG_DEFAULTS.length, 2).setValues(CONFIG_DEFAULTS);
+          Logger.log('Valores por defecto de Configuration insertados');
+        }
+      } else {
+        Logger.log(`Hoja ya existe: ${sheetName}`);
       }
     });
-    
-    Logger.log('✅ Base de datos inicializada');
+
+    Logger.log('Base de datos inicializada');
     return { success: true, message: 'Database initialized' };
   } catch (e) {
-    Logger.log(`❌ Error en setupDatabase: ${e.message}`);
+    Logger.log(`Error en setupDatabase: ${e.message}`);
     return { success: false, error: e.message };
   }
 }
@@ -49,31 +76,100 @@ function setupDatabase() {
 
 /**
  * Obtiene todos los datos de la aplicación
+ * Deserializa filas de Sheets en objetos usables por el frontend
  */
 function getAppData() {
   try {
     const sheetRepo = new SheetRepository();
-    
+
     const payload = {
-      projects: sheetRepo.getAllData('Projects'),
-      templates: sheetRepo.getAllData('Templates'),
-      folders: sheetRepo.getAllData('Folders'),
-      config: ConfigService.getFullConfig()
+      projects:  sheetRepo.getAllData('Projects').map(_deserializeProject),
+      templates: sheetRepo.getAllData('Templates').map(_deserializeTemplate),
+      folders:   sheetRepo.getAllData('Folders').map(_deserializeFolder),
+      config:    ConfigService.getFullConfig()
     };
-    
-    Logger.log(`✅ App data retrieved: ${payload.projects.length} projects`);
+
+    Logger.log(`App data retrieved: ${payload.projects.length} projects`);
     return payload;
   } catch (e) {
-    Logger.log(`❌ Error en getAppData: ${e.message}`);
+    Logger.log(`Error en getAppData: ${e.message}`);
     return { error: e.message };
   }
 }
 
 /**
- * Guarda un proyecto
+ * Mapea una fila de la hoja Projects a un objeto
+ * @private
+ */
+function _deserializeProject(row) {
+  const _tryParse = (val, fallback) => {
+    try { return val ? JSON.parse(val) : fallback; } catch(e) { return fallback; }
+  };
+  return {
+    id:           row[0]  || '',
+    code:         row[1]  || '',
+    title:        row[2]  || '',
+    category:     row[3]  || '',
+    status:       row[4]  || 'active',
+    owner:        _tryParse(row[5], {}),
+    members:      _tryParse(row[6], []),
+    externalTeam: _tryParse(row[7], []),
+    stages:       _tryParse(row[8], []),
+    driveFolderId:row[9]  || '',
+    webhookUrl:   row[10] || '',
+    createdAt:    row[11] || '',
+    updatedAt:    row[12] || ''
+  };
+}
+
+/**
+ * Mapea una fila de la hoja Templates a un objeto
+ * @private
+ */
+function _deserializeTemplate(row) {
+  const _tryParse = (val, fallback) => {
+    try { return val ? JSON.parse(val) : fallback; } catch(e) { return fallback; }
+  };
+  return {
+    id:        row[0] || '',
+    name:      row[1] || '',
+    category:  row[2] || '',
+    stages:    _tryParse(row[3], []),
+    createdAt: row[4] || ''
+  };
+}
+
+/**
+ * Mapea una fila de la hoja Folders a un objeto
+ * @private
+ */
+function _deserializeFolder(row) {
+  return {
+    id:           row[0] || '',
+    projectId:    row[1] || '',
+    name:         row[2] || '',
+    driveFolderId:row[3] || '',
+    createdAt:    row[4] || ''
+  };
+}
+
+/**
+ * Guarda un proyecto (crea o actualiza)
+ * @param {Object} project - Objeto del proyecto
+ * @return {Object} Proyecto guardado o {error}
  */
 function saveProject(project) {
   try {
+    const sheetRepo = new SheetRepository();
+
+    // Asignar ID si es nuevo
+    if (!project.id) {
+      project.id = ConfigService.getNextProjectId();
+      project.code = project.id;
+      project.createdAt = new Date().toISOString();
+    }
+    project.updatedAt = new Date().toISOString();
+
     // Crear carpeta en Drive si no existe
     if (!project.driveFolderId) {
       const driveResult = DriveService.createProjectFolder(project.code, project.title);
@@ -81,13 +177,162 @@ function saveProject(project) {
         project.driveFolderId = driveResult.id;
       }
     }
-    
-    const sheetRepo = new SheetRepository();
-    Logger.log(`✅ Proyecto guardado: ${project.title}`);
+
+    const rowData = [
+      project.id,
+      project.code,
+      project.title,
+      project.category      || '',
+      project.status        || 'active',
+      JSON.stringify(project.owner          || {}),
+      JSON.stringify(project.members        || []),
+      JSON.stringify(project.externalTeam   || []),
+      JSON.stringify(project.stages         || []),
+      project.driveFolderId || '',
+      project.webhookUrl    || '',
+      project.createdAt,
+      project.updatedAt
+    ];
+
+    const existing = sheetRepo.findRow('Projects', project.id, 0);
+    if (existing) {
+      sheetRepo.updateRow('Projects', existing.rowIndex, rowData);
+      Logger.log(`Proyecto actualizado: ${project.title}`);
+    } else {
+      sheetRepo.appendRow('Projects', rowData);
+      Logger.log(`Proyecto creado: ${project.title}`);
+    }
+
     return project;
   } catch (e) {
     Logger.log(`❌ Error en saveProject: ${e.message}`);
     return { error: e.message };
+  }
+}
+
+/**
+ * Alias público para saveProject — usado por el frontend
+ * Guarda o actualiza un proyecto; si trae chatWebhook lo persiste en Configuration
+ * @param {Object} project
+ * @return {Object} Proyecto guardado o {error}
+ */
+function saveProjectToSheet(project) {
+  try {
+    if (project.chatWebhook !== undefined) {
+      saveChatWebhookUrl(project.chatWebhook);
+    }
+    return saveProject(project);
+  } catch (e) {
+    Logger.log(`❌ Error en saveProjectToSheet: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Guarda o actualiza una plantilla en la hoja Templates
+ * @param {Object} template - {id?, name, category, stages}
+ * @return {Object} Plantilla guardada o {error}
+ */
+function saveTemplateToSheet(template) {
+  try {
+    const sheetRepo = new SheetRepository();
+
+    if (!template.id) {
+      template.id = 'TPL-' + Date.now();
+      template.createdAt = new Date().toISOString();
+    }
+
+    const rowData = [
+      template.id,
+      template.name     || '',
+      template.category || '',
+      JSON.stringify(template.stages || []),
+      template.createdAt
+    ];
+
+    const existing = sheetRepo.findRow('Templates', template.id, 0);
+    if (existing) {
+      sheetRepo.updateRow('Templates', existing.rowIndex, rowData);
+      Logger.log(`✅ Template actualizado: ${template.name}`);
+    } else {
+      sheetRepo.appendRow('Templates', rowData);
+      Logger.log(`✅ Template creado: ${template.name}`);
+    }
+
+    return template;
+  } catch (e) {
+    Logger.log(`❌ Error en saveTemplateToSheet: ${e.message}`);
+    return { error: e.message };
+  }
+}
+
+/**
+ * Elimina un proyecto de la hoja Projects
+ * @param {string} projectId
+ * @return {Object} {success: boolean}
+ */
+function deleteProjectFromSheet(projectId) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const existing = sheetRepo.findRow('Projects', projectId, 0);
+    if (!existing) return { success: false, error: 'Project not found' };
+    sheetRepo.deleteRow('Projects', existing.rowIndex);
+    Logger.log(`✅ Proyecto eliminado: ${projectId}`);
+    return { success: true };
+  } catch (e) {
+    Logger.log(`❌ Error en deleteProjectFromSheet: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Elimina una plantilla de la hoja Templates
+ * @param {string} templateId
+ * @return {Object} {success: boolean}
+ */
+function deleteTemplateFromSheet(templateId) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const existing = sheetRepo.findRow('Templates', templateId, 0);
+    if (!existing) return { success: false, error: 'Template not found' };
+    sheetRepo.deleteRow('Templates', existing.rowIndex);
+    Logger.log(`✅ Template eliminado: ${templateId}`);
+    return { success: true };
+  } catch (e) {
+    Logger.log(`❌ Error en deleteTemplateFromSheet: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Guarda el estado de carpetas en la hoja Folders
+ * @param {Array} folders - [{name, isOpen, order}]
+ * @return {boolean}
+ */
+function saveFoldersToSheet(folders) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Folders');
+    if (!sheet) return false;
+
+    const lastRow = sheetRepo.getLastRow('Folders');
+    if (lastRow > 1) sheetRepo.clearRange('Folders', 2, lastRow - 1, 5);
+
+    folders.forEach(f => {
+      sheetRepo.appendRow('Folders', [
+        f.name || '',
+        '',
+        f.name || '',
+        '',
+        new Date().toISOString()
+      ]);
+    });
+
+    Logger.log(`✅ Folders guardados: ${folders.length}`);
+    return true;
+  } catch (e) {
+    Logger.log(`❌ Error en saveFoldersToSheet: ${e.message}`);
+    return false;
   }
 }
 
@@ -128,7 +373,7 @@ function generateGridColumns(dateRange, scale) {
     
     return GanttService.generateGridColumns(dateRange, scale);
   } catch (error) {
-    Logger.log(`❌ Error en generateGridColumns: ${error.message}`);
+    Logger.log(`Error en generateGridColumns: ${error.message}`);
     return [];
   }
 }
@@ -147,7 +392,7 @@ function calculateGanttBarStyle(item, dateRange) {
     
     return GanttService.calculateBarStyle(item, dateRange);
   } catch (error) {
-    Logger.log(`❌ Error en calculateGanttBarStyle: ${error.message}`);
+    Logger.log(`Error en calculateGanttBarStyle: ${error.message}`);
     return { display: 'none' };
   }
 }
@@ -159,7 +404,7 @@ function calculateDaysBetween(startDate, endDate) {
   try {
     return DateService.calculateDays(startDate, endDate);
   } catch (error) {
-    Logger.log(`❌ Error en calculateDaysBetween: ${error.message}`);
+    Logger.log(`Error en calculateDaysBetween: ${error.message}`);
     return 0;
   }
 }
@@ -170,9 +415,38 @@ function calculateDaysBetween(startDate, endDate) {
 
 /**
  * Envía notificación a Google Chat
+ * El webhookUrl se obtiene desde la configuración del servidor, no del cliente
+ * @param {string} message - Mensaje a enviar
+ * @return {Object} {success: boolean, error?: string}
  */
-function sendGoogleChatNotification(webhookUrl, message) {
+function sendGoogleChatNotification(message) {
+  const webhookUrl = ConfigService.getChatWebhookUrl();
   return ChatService.sendNotification(webhookUrl, message);
+}
+
+/**
+ * Guarda el webhook URL de Google Chat en la configuración del servidor
+ * @param {string} webhookUrl - URL del webhook
+ * @return {boolean}
+ */
+function saveChatWebhookUrl(webhookUrl) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const configData = sheetRepo.getAllData('Configuration');
+    for (let i = 0; i < configData.length; i++) {
+      if (configData[i][0] === 'CHAT_WEBHOOK_URL') {
+        sheetRepo.setCellValue('Configuration', i + 2, 2, webhookUrl);
+        Logger.log('Webhook URL guardado');
+        return true;
+      }
+    }
+    sheetRepo.appendRow('Configuration', ['CHAT_WEBHOOK_URL', webhookUrl]);
+    Logger.log('Webhook URL creado');
+    return true;
+  } catch (e) {
+    Logger.log(`Error en saveChatWebhookUrl: ${e.message}`);
+    return false;
+  }
 }
 
 // =====================================================
@@ -186,7 +460,7 @@ function getDriveContents(folderId) {
   try {
     return DriveService.getFolderContents(folderId);
   } catch (e) {
-    Logger.log(`❌ Error en getDriveContents: ${e.message}`);
+    Logger.log(`Error en getDriveContents: ${e.message}`);
     return { error: e.message };
   }
 }
@@ -198,7 +472,7 @@ function createDriveSubFolder(parentFolderId, name) {
   try {
     return DriveService.createSubFolder(parentFolderId, name);
   } catch (e) {
-    Logger.log(`❌ Error en createDriveSubFolder: ${e.message}`);
+    Logger.log(`Error en createDriveSubFolder: ${e.message}`);
     return { error: e.message };
   }
 }
@@ -210,7 +484,7 @@ function uploadFileToDrive(parentFolderId, base64Data, filename, mimeType) {
   try {
     return DriveService.uploadFile(parentFolderId, base64Data, filename, mimeType);
   } catch (e) {
-    Logger.log(`❌ Error en uploadFileToDrive: ${e.message}`);
+    Logger.log(`Error en uploadFileToDrive: ${e.message}`);
     return { error: e.message };
   }
 }
@@ -222,7 +496,7 @@ function deleteDriveItem(id, isFolder) {
   try {
     return DriveService.deleteItem(id, isFolder);
   } catch (e) {
-    Logger.log(`❌ Error en deleteDriveItem: ${e.message}`);
+    Logger.log(`Error en deleteDriveItem: ${e.message}`);
     return { error: e.message };
   }
 }

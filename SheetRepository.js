@@ -143,5 +143,3 @@ class SheetRepository {
   }
 }
 
-// Exportar instancia singleton
-const sheetRepository = new SheetRepository();

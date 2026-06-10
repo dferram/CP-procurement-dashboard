@@ -82,10 +82,10 @@ class DriveService {
       newFolder.createFolder("2. CAD & Designs");
       newFolder.createFolder("3. Approvals");
       
-      Logger.log(`✅ Carpeta de proyecto creada: ${projectCode}`);
+      Logger.log(`Carpeta de proyecto creada: ${projectCode}`);
       return { success: true, id: newFolder.getId() };
     } catch (e) {
-      Logger.log(`⚠️ Error en createProjectFolder: ${e.message}`);
+      Logger.log(`Error en createProjectFolder: ${e.message}`);
       return { success: false, error: e.message };
     }
   }
@@ -100,8 +100,10 @@ class DriveService {
    */
   static uploadFile(parentFolderId, base64Data, filename, mimeType) {
     try {
+      if (!base64Data) throw new Error("base64Data está vacío o es inválido");
       const parent = DriveApp.getFolderById(parentFolderId);
-      const data = base64Data.split(',')[1];
+      const data = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+      if (!data) throw new Error("No se pudo extraer datos base64 del archivo");
       const blob = Utilities.newBlob(
         Utilities.base64Decode(data),
         mimeType,
@@ -109,14 +111,14 @@ class DriveService {
       );
       const file = parent.createFile(blob);
       
-      Logger.log(`✅ Archivo subido: ${filename}`);
+      Logger.log(`Archivo subido: ${filename}`);
       return {
         success: true,
         id: file.getId(),
         url: file.getUrl()
       };
     } catch (e) {
-      Logger.log(`❌ Error en uploadFile: ${e.message}`);
+      Logger.log(`Error en uploadFile: ${e.message}`);
       throw new Error("Error al subir archivo: " + e.message);
     }
   }
@@ -131,14 +133,14 @@ class DriveService {
     try {
       if (isFolder) {
         DriveApp.getFolderById(id).setTrashed(true);
-        Logger.log(`✅ Carpeta eliminada: ${id}`);
+        Logger.log(`Carpeta eliminada: ${id}`);
       } else {
         DriveApp.getFileById(id).setTrashed(true);
-        Logger.log(`✅ Archivo eliminado: ${id}`);
+        Logger.log(`Archivo eliminado: ${id}`);
       }
       return { success: true };
     } catch (e) {
-      Logger.log(`❌ Error en deleteItem: ${e.message}`);
+      Logger.log(`Error en deleteItem: ${e.message}`);
       throw new Error("Error al eliminar: " + e.message);
     }
   }
