@@ -39,6 +39,7 @@
                 // ─── FILTER & SORT STATE ──────────────────────────────────
                 const filterStatus = ref('ALL');
                 const filterOwner = ref('ALL');
+                const filterFolder = ref('ALL');
                 const sortBy = ref('date_desc');
 
                 // ─── GANTT STATE ──────────────────────────────────────────
@@ -484,6 +485,7 @@
                     if (searchQuery.value) res = res.filter(p => p.title.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.code.toLowerCase().includes(searchQuery.value.toLowerCase()));
                     if (filterStatus.value !== 'ALL') res = res.filter(p => p.cycleStatus === filterStatus.value);
                     if (filterOwner.value !== 'ALL') res = res.filter(p => p.projectOwner === filterOwner.value || (!p.projectOwner && filterOwner.value === 'Unassigned'));
+                    if (filterFolder.value !== 'ALL') res = res.filter(p => (p.folder || 'Uncategorized') === filterFolder.value);
 
                     res.sort((a, b) => {
                         if (sortBy.value === 'name_asc') return a.title.localeCompare(b.title);
@@ -536,10 +538,10 @@
                     }, { ftg: 0, onCost: 0 });
                 };
 
-                const activeProjectsList = computed(() => projects.value.filter(p => !p.archived));
+                const activeProjectsList = computed(() => filteredProjects.value.filter(p => !p.archived));
 
                 const executiveSummary = computed(() => {
-                    const active = activeProjectsList.value;
+                    const active = filteredProjects.value.filter(p => !p.archived);
                     let totalProg = 0;
                     const atRisk = [];
                     active.forEach(p => {
@@ -554,10 +556,11 @@
                 });
 
                 const stats = computed(() => {
-                    const total = projects.value.length;
-                    const active = projects.value.filter(p => !p.archived).length;
-                    const archived = projects.value.filter(p => p.archived).length;
-                    const activePrj = projects.value.filter(p => !p.archived);
+                    const base = currentView.value === 'summary' ? filteredProjects.value : projects.value;
+                    const total = base.length;
+                    const active = base.filter(p => !p.archived).length;
+                    const archived = base.filter(p => p.archived).length;
+                    const activePrj = base.filter(p => !p.archived);
                     
                     const alerts = activePrj.reduce((acc, p) => acc + getProjectAlerts(p), 0);
                     
@@ -854,7 +857,7 @@
                     collapsed, currentView, viewTitle, viewMode, searchQuery, viewerOpen, detailsOpen, editingType, editingObject, selectedProject, activeViewerStage, menuItems,
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, sortBy, ganttScale, ganttGridColumns, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
