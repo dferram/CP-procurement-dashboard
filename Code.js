@@ -18,27 +18,54 @@ function doGet() {
 
 /**
  * Inicializa la base de datos por primera vez
- * Crea todas las hojas necesarias
+ * Crea todas las hojas necesarias con sus headers
  */
 function setupDatabase() {
   try {
-    const sheetRepo = new SheetRepository();
-    
-    // Crear hojas si no existen
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheets = ['Projects', 'Templates', 'Folders', 'Configuration'];
-    
-    sheets.forEach(sheetName => {
-      if (!ss.getSheetByName(sheetName)) {
-        Logger.log(`📝 Creando hoja: ${sheetName}`);
-        // Las hojas se crearán cuando se usen
+
+    const SHEET_SCHEMAS = {
+      Projects: ['id', 'code', 'title', 'category', 'status', 'owner', 'members',
+                 'externalTeam', 'stages', 'driveFolderId', 'webhookUrl',
+                 'createdAt', 'updatedAt'],
+      Templates: ['id', 'name', 'category', 'stages', 'createdAt'],
+      Folders:   ['id', 'projectId', 'name', 'driveFolderId', 'createdAt'],
+      Configuration: ['key', 'value']
+    };
+
+    const CONFIG_DEFAULTS = [
+      ['NEXT_PRJ_ID', 1],
+      ['DRIVE_ROOT_FOLDER_ID', 'PASTE_YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE'],
+      ['CHAT_WEBHOOK_URL', ''],
+      ['CP_TEAM', '[]'],
+      ['EXTERNAL_TEAM', '[]'],
+      ['SUGGESTIONS', '[]']
+    ];
+
+    Object.entries(SHEET_SCHEMAS).forEach(([sheetName, headers]) => {
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        sheet.getRange(1, 1, 1, headers.length)
+          .setFontWeight('bold')
+          .setBackground('#1F2937')
+          .setFontColor('#FFFFFF');
+        Logger.log(`Hoja creada: ${sheetName}`);
+
+        if (sheetName === 'Configuration') {
+          sheet.getRange(2, 1, CONFIG_DEFAULTS.length, 2).setValues(CONFIG_DEFAULTS);
+          Logger.log('Valores por defecto de Configuration insertados');
+        }
+      } else {
+        Logger.log(`Hoja ya existe: ${sheetName}`);
       }
     });
-    
-    Logger.log('✅ Base de datos inicializada');
+
+    Logger.log('Base de datos inicializada');
     return { success: true, message: 'Database initialized' };
   } catch (e) {
-    Logger.log(`❌ Error en setupDatabase: ${e.message}`);
+    Logger.log(`Error en setupDatabase: ${e.message}`);
     return { success: false, error: e.message };
   }
 }
@@ -61,19 +88,31 @@ function getAppData() {
       config: ConfigService.getFullConfig()
     };
     
-    Logger.log(`✅ App data retrieved: ${payload.projects.length} projects`);
+    Logger.log(`App data retrieved: ${payload.projects.length} projects`);
     return payload;
   } catch (e) {
-    Logger.log(`❌ Error en getAppData: ${e.message}`);
+    Logger.log(`Error en getAppData: ${e.message}`);
     return { error: e.message };
   }
 }
 
 /**
- * Guarda un proyecto
+ * Guarda un proyecto (crea o actualiza)
+ * @param {Object} project - Objeto del proyecto
+ * @return {Object} Proyecto guardado o {error}
  */
 function saveProject(project) {
   try {
+    const sheetRepo = new SheetRepository();
+
+    // Asignar ID si es nuevo
+    if (!project.id) {
+      project.id = ConfigService.getNextProjectId();
+      project.code = project.id;
+      project.createdAt = new Date().toISOString();
+    }
+    project.updatedAt = new Date().toISOString();
+
     // Crear carpeta en Drive si no existe
     if (!project.driveFolderId) {
       const driveResult = DriveService.createProjectFolder(project.code, project.title);
@@ -81,9 +120,32 @@ function saveProject(project) {
         project.driveFolderId = driveResult.id;
       }
     }
-    
-    const sheetRepo = new SheetRepository();
-    Logger.log(`✅ Proyecto guardado: ${project.title}`);
+
+    const rowData = [
+      project.id,
+      project.code,
+      project.title,
+      project.category      || '',
+      project.status        || 'active',
+      JSON.stringify(project.owner          || {}),
+      JSON.stringify(project.members        || []),
+      JSON.stringify(project.externalTeam   || []),
+      JSON.stringify(project.stages         || []),
+      project.driveFolderId || '',
+      project.webhookUrl    || '',
+      project.createdAt,
+      project.updatedAt
+    ];
+
+    const existing = sheetRepo.findRow('Projects', project.id, 0);
+    if (existing) {
+      sheetRepo.updateRow('Projects', existing.rowIndex, rowData);
+      Logger.log(`Proyecto actualizado: ${project.title}`);
+    } else {
+      sheetRepo.appendRow('Projects', rowData);
+      Logger.log(`Proyecto creado: ${project.title}`);
+    }
+
     return project;
   } catch (e) {
     Logger.log(`❌ Error en saveProject: ${e.message}`);
@@ -128,7 +190,7 @@ function generateGridColumns(dateRange, scale) {
     
     return GanttService.generateGridColumns(dateRange, scale);
   } catch (error) {
-    Logger.log(`❌ Error en generateGridColumns: ${error.message}`);
+    Logger.log(`Error en generateGridColumns: ${error.message}`);
     return [];
   }
 }
@@ -147,7 +209,7 @@ function calculateGanttBarStyle(item, dateRange) {
     
     return GanttService.calculateBarStyle(item, dateRange);
   } catch (error) {
-    Logger.log(`❌ Error en calculateGanttBarStyle: ${error.message}`);
+    Logger.log(`Error en calculateGanttBarStyle: ${error.message}`);
     return { display: 'none' };
   }
 }
@@ -159,7 +221,7 @@ function calculateDaysBetween(startDate, endDate) {
   try {
     return DateService.calculateDays(startDate, endDate);
   } catch (error) {
-    Logger.log(`❌ Error en calculateDaysBetween: ${error.message}`);
+    Logger.log(`Error en calculateDaysBetween: ${error.message}`);
     return 0;
   }
 }
@@ -170,9 +232,38 @@ function calculateDaysBetween(startDate, endDate) {
 
 /**
  * Envía notificación a Google Chat
+ * El webhookUrl se obtiene desde la configuración del servidor, no del cliente
+ * @param {string} message - Mensaje a enviar
+ * @return {Object} {success: boolean, error?: string}
  */
-function sendGoogleChatNotification(webhookUrl, message) {
+function sendGoogleChatNotification(message) {
+  const webhookUrl = ConfigService.getChatWebhookUrl();
   return ChatService.sendNotification(webhookUrl, message);
+}
+
+/**
+ * Guarda el webhook URL de Google Chat en la configuración del servidor
+ * @param {string} webhookUrl - URL del webhook
+ * @return {boolean}
+ */
+function saveChatWebhookUrl(webhookUrl) {
+  try {
+    const sheetRepo = new SheetRepository();
+    const configData = sheetRepo.getAllData('Configuration');
+    for (let i = 0; i < configData.length; i++) {
+      if (configData[i][0] === 'CHAT_WEBHOOK_URL') {
+        sheetRepo.setCellValue('Configuration', i + 2, 2, webhookUrl);
+        Logger.log('Webhook URL guardado');
+        return true;
+      }
+    }
+    sheetRepo.appendRow('Configuration', ['CHAT_WEBHOOK_URL', webhookUrl]);
+    Logger.log('Webhook URL creado');
+    return true;
+  } catch (e) {
+    Logger.log(`Error en saveChatWebhookUrl: ${e.message}`);
+    return false;
+  }
 }
 
 // =====================================================
@@ -186,7 +277,7 @@ function getDriveContents(folderId) {
   try {
     return DriveService.getFolderContents(folderId);
   } catch (e) {
-    Logger.log(`❌ Error en getDriveContents: ${e.message}`);
+    Logger.log(`Error en getDriveContents: ${e.message}`);
     return { error: e.message };
   }
 }
@@ -198,7 +289,7 @@ function createDriveSubFolder(parentFolderId, name) {
   try {
     return DriveService.createSubFolder(parentFolderId, name);
   } catch (e) {
-    Logger.log(`❌ Error en createDriveSubFolder: ${e.message}`);
+    Logger.log(`Error en createDriveSubFolder: ${e.message}`);
     return { error: e.message };
   }
 }
@@ -210,7 +301,7 @@ function uploadFileToDrive(parentFolderId, base64Data, filename, mimeType) {
   try {
     return DriveService.uploadFile(parentFolderId, base64Data, filename, mimeType);
   } catch (e) {
-    Logger.log(`❌ Error en uploadFileToDrive: ${e.message}`);
+    Logger.log(`Error en uploadFileToDrive: ${e.message}`);
     return { error: e.message };
   }
 }
@@ -222,7 +313,7 @@ function deleteDriveItem(id, isFolder) {
   try {
     return DriveService.deleteItem(id, isFolder);
   } catch (e) {
-    Logger.log(`❌ Error en deleteDriveItem: ${e.message}`);
+    Logger.log(`Error en deleteDriveItem: ${e.message}`);
     return { error: e.message };
   }
 }
