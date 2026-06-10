@@ -1,4 +1,4 @@
-    <script>
+﻿    <script>
         const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
         createApp({
@@ -236,7 +236,7 @@
                         return;
                     }
 
-                    const payloadText = `📢 *Update in Project: ${editingObject.value.code || 'Draft'} - ${editingObject.value.title}*\n*Context:* ${context}\n*Message:* ${messageText}`;
+                    const payloadText = `­*Update in Project: ${editingObject.value.code || 'Draft'} - ${editingObject.value.title}*\n*Context:* ${context}\n*Message:* ${messageText}`;
                     
                     if (typeof google !== 'undefined' && google.script) {
                         google.script.run.withSuccessHandler((res) => {
@@ -612,6 +612,7 @@
 
                     return { left: leftPct + '%', width: widthPct + '%' };
                 };
+
 
                 const getStatusColor = (s) => s === 'COMPLETED' ? 'bg-emerald-500' : (s === 'IN PROGRESS' ? 'bg-blue-500' : 'bg-slate-300');
                 const getStatusCycleColor = (s) => s === 'ON TRACK' ? 'bg-emerald-100 text-emerald-700' : (s === 'DELAYED' ? 'bg-amber-100 text-amber-700' : (s === 'AT RISK' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'));
