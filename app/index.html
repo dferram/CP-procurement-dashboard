@@ -181,6 +181,31 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #c5d0e6; border-radius: 10px; }
 
+        /* ── Gantt Bar ── */
+        .gantt-bar {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 26px;
+            border-radius: 4px;
+            min-width: 8px;
+            overflow: hidden;
+            transition: opacity 0.18s;
+            cursor: default;
+        }
+        .gantt-bar:hover { opacity: 0.82; }
+
+        /* Today marker line */
+        .gantt-today-line {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 2px;
+            background: var(--cp-red);
+            opacity: 0.55;
+            z-index: 10;
+            pointer-events: none;
+        }
+
         /* ── Drag ── */
         .drag-handle { cursor: grab; }
         .drag-handle:active { cursor: grabbing; }
