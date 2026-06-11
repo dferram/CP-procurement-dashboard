@@ -765,124 +765,193 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
                 <!-- ========================================== -->
                 <!-- VIEW: GANTT TIMELINE                       -->
                 <!-- ========================================== -->
                 <div v-if="currentView === 'gantt'" class="flex-1 overflow-hidden flex flex-col">
-                    <header class="cp-header px-8 py-3 shrink-0 flex flex-wrap items-center gap-4">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-project-diagram text-xs" style="color:var(--text-muted)"></i>
-                            <label class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-muted)">Project:</label>
-                            <select v-model="ganttProjectId" class="cp-select shadow-sm max-w-xs">
-                                <option v-for="p in filteredProjects" :key="p.id" :value="p.id">{{ p.code ? p.code + ' — ' : '' }}{{ p.title }}</option>
-                            </select>
+
+                    <!-- Filter bar — plain div (avoids cp-header z-index/sticky side-effects) -->
+                    <div class="shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex flex-wrap items-center gap-2.5" style="box-shadow:0 1px 4px rgba(0,71,187,0.06)">
+
+                        <!-- Mode: All / Single -->
+                        <div class="cp-toggle flex shrink-0">
+                            <button @click="ganttViewMode = 'all'"
+                                    :class="['cp-toggle-btn text-[0.65rem]', ganttViewMode === 'all' ? 'cp-toggle-btn-active' : '']">
+                                <i class="fas fa-layer-group mr-1"></i>All Projects
+                            </button>
+                            <button @click="ganttViewMode = 'single'"
+                                    :class="['cp-toggle-btn text-[0.65rem]', ganttViewMode === 'single' ? 'cp-toggle-btn-active' : '']">
+                                <i class="fas fa-project-diagram mr-1"></i>Single
+                            </button>
                         </div>
-                        <div class="flex items-center gap-2 ml-auto">
-                            <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-muted)">Scale:</span>
+
+                        <!-- Single mode: project picker -->
+                        <select v-if="ganttViewMode === 'single'" v-model="ganttProjectId" class="cp-select text-xs shadow-sm">
+                            <option v-for="p in projects.filter(x => !x.archived)" :key="p.id" :value="p.id">
+                                {{ p.code ? p.code + ' \u2014 ' : '' }}{{ p.title }}
+                            </option>
+                        </select>
+
+                        <!-- All mode: filters -->
+                        <template v-if="ganttViewMode === 'all'">
+                            <select v-model="ganttFilterCategory" class="cp-select text-xs shadow-sm">
+                                <option v-for="c in ganttCategories" :key="c" :value="c">{{ c === 'ALL' ? 'All Categories' : c }}</option>
+                            </select>
+                            <select v-model="ganttFilterOwner" class="cp-select text-xs shadow-sm">
+                                <option v-for="o in ganttOwners" :key="o" :value="o">{{ o === 'ALL' ? 'All Owners' : o }}</option>
+                            </select>
+                            <select v-model="ganttFilterStatus" class="cp-select text-xs shadow-sm">
+                                <option value="ALL">All Statuses</option>
+                                <option value="ON TRACK">On Track</option>
+                                <option value="DELAYED">Delayed</option>
+                                <option value="AT RISK">At Risk</option>
+                                <option value="ON HOLD">On Hold</option>
+                                <option value="CANCELLED">Cancelled</option>
+                            </select>
+                        </template>
+
+                        <!-- Right side: count + legend + scale -->
+                        <div class="ml-auto flex items-center gap-3 shrink-0">
+                            <span v-if="ganttViewMode === 'all'" class="text-[0.65rem] font-bold px-2 py-0.5 bg-slate-100 rounded-full text-slate-500">
+                                {{ ganttVisibleProjects.length }} project{{ ganttVisibleProjects.length !== 1 ? 's' : '' }}
+                            </span>
+                            <div class="hidden lg:flex items-center gap-2 text-[0.58rem] font-bold text-slate-400">
+                                <span><span class="inline-block w-2 h-2 rounded-full bg-slate-300 mr-0.5 align-middle"></span>Pending</span>
+                                <span><span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-0.5 align-middle"></span>Active</span>
+                                <span><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-0.5 align-middle"></span>Done</span>
+                                <span><span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-0.5 align-middle"></span>Stopped</span>
+                                <span><span class="inline-block w-4 h-0.5 bg-[var(--cp-red)] opacity-60 mr-0.5 align-middle"></span>Today</span>
+                            </div>
                             <div class="cp-toggle flex">
                                 <button v-for="sc in ['Weekly','Monthly','Yearly']" :key="sc"
                                         @click="ganttScale = sc.toLowerCase()"
-                                        :class="['cp-toggle-btn uppercase', ganttScale === sc.toLowerCase() ? 'cp-toggle-btn-active' : '']">{{ sc }}</button>
-                            </div>
-                        </div>
-                    </header>
-                    <div v-if="!ganttViewProject" class="flex-1 flex items-center justify-center flex-col opacity-50">
-                        <i class="fas fa-bars-progress text-6xl mb-4 text-slate-300"></i>
-                        <p class="font-bold text-sm uppercase tracking-widest text-slate-400">No projects to display</p>
-                    </div>
-                    <div v-else class="flex-1 overflow-auto p-8 custom-scrollbar" style="background:var(--bg-main)">
-                        <div class="max-w-screen-2xl mx-auto mb-5 bg-white rounded-panel border border-slate-200 shadow-sm px-6 py-4 flex flex-wrap items-center gap-4">
-                            <div :class="['w-10 h-10 rounded flex items-center justify-center text-white text-sm shrink-0', getStatusColor(ganttViewProject.stages?.find(s => s.status === 'IN PROGRESS' || s.status === 'STOPPED')?.status || 'COMPLETED')]">
-                                <i :class="['fas', ganttViewProject.icon || 'fa-project-diagram']"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <h3 class="font-bold text-base truncate" style="color:var(--text-primary)">{{ ganttViewProject.title }}</h3>
-                                <div class="flex flex-wrap items-center gap-3 mt-0.5">
-                                    <span class="text-[0.65rem] font-bold uppercase tracking-widest" style="color:var(--text-muted)">{{ ganttViewProject.code }}</span>
-                                    <span :class="['text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase', getStatusCycleColor(ganttViewProject.cycleStatus)]">{{ ganttViewProject.cycleStatus }}</span>
-                                    <span class="text-[0.65rem] font-semibold" style="color:var(--text-muted)"><i class="fas fa-user-circle mr-1"></i>{{ ganttViewProject.projectOwner || 'Unassigned' }}</span>
-                                    <span class="text-[0.65rem] font-semibold" style="color:var(--text-muted)"><i class="fas fa-calendar-alt mr-1"></i>{{ ganttViewDateRange.totalDays }}d total span</span>
-                                </div>
-                            </div>
-                            <div class="ml-auto flex items-center gap-2">
-                                <div class="hidden md:flex items-center gap-3 text-[0.62rem] font-bold" style="color:var(--text-muted)">
-                                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-300 mr-1 align-middle"></span>Pending</span>
-                                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 mr-1 align-middle"></span>In Progress</span>
-                                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1 align-middle"></span>Completed</span>
-                                    <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 mr-1 align-middle"></span>Stopped</span>
-                                    <span class="ml-1"><span class="inline-block w-3 h-0.5 bg-[var(--cp-red)] opacity-60 mr-1 align-middle"></span>Today</span>
-                                </div>
-                                <button @click="viewProjectDetails(ganttViewProject)" class="btn-secondary flex items-center gap-1.5 text-xs ml-3">
-                                    <i class="fas fa-eye"></i> View Details
-                                </button>
-                            </div>
-                        </div>
-                        <div class="max-w-screen-2xl mx-auto bg-white rounded-panel border border-slate-200 overflow-hidden shadow-sm">
-                            <div class="gantt-container bg-slate-100/70 border-b border-slate-200 font-black text-[0.6rem] text-slate-400 uppercase tracking-widest sticky top-0 z-20 shadow-sm">
-                                <div class="p-4 border-r border-slate-200 text-[0.6rem]">Phase / Task</div>
-                                <div class="flex relative overflow-hidden">
-                                    <div class="gantt-today-line" :style="getTodayLineStyle(ganttViewDateRange)"></div>
-                                    <div v-for="(col, ci) in ganttViewGridColumns" :key="'hc-'+ci"
-                                         class="flex-1 text-center border-l border-slate-200/50 first:border-l-0 truncate px-1 py-3.5 text-[9px]">{{ col }}</div>
-                                </div>
-                            </div>
-                            <template v-for="(stage, sIdx) in ganttViewProject.stages" :key="'gvs-'+sIdx">
-                                <div class="gantt-container border-b border-slate-100 hover:bg-blue-50/20 transition-all bg-white">
-                                    <div class="p-3.5 border-r border-slate-100 flex items-center gap-3">
-                                        <div :class="['w-7 h-7 rounded-full flex items-center justify-center text-white text-[0.6rem] shadow-sm shrink-0', getStatusColor(stage.status)]">
-                                            <i :class="['fas', stage.icon || 'fa-tasks']"></i>
-                                        </div>
-                                        <div class="min-w-0">
-                                            <p class="text-xs font-bold text-slate-700 uppercase truncate leading-tight" :title="stage.title">{{ stage.title }}</p>
-                                            <p class="text-[0.58rem] font-semibold text-slate-400 mt-0.5 uppercase">{{ stage.status }} · {{ stage.assignee || 'Unassigned' }} · {{ calculateDays(stage.startDate, stage.endDate) }}d</p>
-                                        </div>
-                                    </div>
-                                    <div class="relative h-14 overflow-hidden">
-                                        <div class="absolute inset-0 flex divide-x divide-slate-100/50 pointer-events-none">
-                                            <div v-for="n in ganttViewGridColumns.length" :key="'ggl-s-'+sIdx+'-'+n" class="flex-1"></div>
-                                        </div>
-                                        <div class="gantt-today-line" :style="getTodayLineStyle(ganttViewDateRange)"></div>
-                                        <div :class="['gantt-bar flex items-center justify-between px-3 shadow-md border-b-2 border-black/10', getStatusColor(stage.status)]"
-                                             :style="getGanttViewBarStyle(stage)">
-                                            <span class="text-[0.55rem] font-bold text-white uppercase whitespace-nowrap truncate">{{ stage.assignee || stage.title }}</span>
-                                            <span class="text-[0.55rem] font-bold text-white/80 whitespace-nowrap ml-2 shrink-0">{{ calculateDays(stage.startDate, stage.endDate) }}d</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div v-for="(task, tIdx) in stage.tasks" :key="'gvt-'+sIdx+'-'+tIdx"
-                                     class="gantt-container border-b border-slate-50 bg-slate-50/30 hover:bg-slate-50 transition-all">
-                                    <div class="py-2.5 pr-3 pl-10 border-r border-slate-100 flex items-center gap-2">
-                                        <i class="fas fa-level-up-alt rotate-90 text-slate-300 text-[0.55rem] shrink-0"></i>
-                                        <div :class="['w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0', task.done ? 'bg-emerald-400 border-emerald-400' : (task.alert ? 'border-red-400' : 'border-slate-300')]">
-                                            <i v-if="task.done" class="fas fa-check text-white" style="font-size:0.4rem"></i>
-                                            <i v-else-if="task.alert" class="fas fa-exclamation text-red-500" style="font-size:0.4rem"></i>
-                                        </div>
-                                        <span :class="['text-[0.65rem] font-semibold truncate', task.done ? 'text-slate-400 line-through' : (task.alert ? 'text-red-500' : 'text-slate-600')]" :title="task.desc">{{ task.desc }}</span>
-                                    </div>
-                                    <div class="relative h-9 overflow-hidden">
-                                        <div class="absolute inset-0 flex divide-x divide-slate-100/50 pointer-events-none">
-                                            <div v-for="n in ganttViewGridColumns.length" :key="'ggl-t-'+sIdx+'-'+tIdx+'-'+n" class="flex-1"></div>
-                                        </div>
-                                        <div class="gantt-today-line" :style="getTodayLineStyle(ganttViewDateRange)"></div>
-                                        <div v-if="task.startDate && task.endDate"
-                                             :class="['gantt-bar flex items-center px-2 border shadow-sm', task.done ? 'bg-emerald-100 border-emerald-300 !h-[12px]' : (task.alert ? 'bg-red-100 border-red-300 !h-[12px]' : 'bg-blue-50 border-blue-200 !h-[12px]')]"
-                                             :style="getGanttViewBarStyle(task)">
-                                            <span :class="['text-[0.5rem] font-bold uppercase whitespace-nowrap', task.done ? 'text-emerald-600' : (task.alert ? 'text-red-600' : 'text-blue-600')]">{{ calculateDays(task.startDate, task.endDate) }}d</span>
-                                        </div>
-                                        <div v-else class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                            <span class="text-[0.55rem] text-slate-300 font-semibold italic">No dates</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                            <div v-if="!ganttViewProject.stages || !ganttViewProject.stages.length" class="p-16 text-center opacity-50">
-                                <i class="fas fa-calendar-xmark text-5xl text-slate-300 mb-4"></i>
-                                <p class="text-sm font-bold text-slate-400 uppercase">No phases configured for this project.</p>
+                                        :class="['cp-toggle-btn text-[0.65rem] uppercase', ganttScale === sc.toLowerCase() ? 'cp-toggle-btn-active' : '']">{{ sc }}</button>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Empty state -->
+                    <div v-if="!ganttVisibleProjects.length" class="flex-1 flex items-center justify-center flex-col gap-3">
+                        <i class="fas fa-bars-progress text-5xl text-slate-200"></i>
+                        <p class="text-sm font-bold uppercase tracking-widest text-slate-300">No projects to display</p>
+                        <p v-if="ganttViewMode === 'all'" class="text-xs text-slate-400">Try adjusting the filters above</p>
+                    </div>
+
+                    <!-- Gantt chart -->
+                    <div v-else class="flex-1 overflow-auto custom-scrollbar" style="background:var(--bg-main)">
+                        <div class="p-6">
+                            <div class="bg-white rounded-panel border border-slate-200 overflow-hidden shadow-sm">
+
+                                <!-- Sticky column header -->
+                                <div class="gantt-container border-b-2 border-slate-200 sticky top-0 z-30 bg-slate-50 shadow-sm">
+                                    <div class="p-4 border-r border-slate-200 text-[0.6rem] font-black text-slate-400 uppercase tracking-widest">Phase / Task</div>
+                                    <div class="relative overflow-hidden flex">
+                                        <div class="gantt-today-line" :style="getTodayLineStyle(ganttAllDateRange)"></div>
+                                        <div v-for="(col, ci) in ganttAllGridColumns" :key="'ghc-'+ci"
+                                             class="flex-1 text-center border-l border-slate-200/50 first:border-l-0 truncate px-1 py-3.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            {{ col }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Per-project blocks -->
+                                <template v-for="(proj, pIdx) in ganttVisibleProjects" :key="'gp-'+proj.id">
+
+                                    <!-- Project group header -->
+                                    <div class="gantt-container border-b-2 border-slate-200">
+                                        <div class="px-3 py-2.5 border-r border-slate-200 bg-slate-50/90 flex items-center gap-2.5">
+                                            <span :class="['w-2.5 h-2.5 rounded-full shrink-0 shadow-sm', getProjectColor(pIdx)]"></span>
+                                            <div class="min-w-0">
+                                                <p class="text-[0.68rem] font-black text-slate-800 truncate uppercase leading-tight" :title="proj.title">{{ proj.title }}</p>
+                                                <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                                    <span :class="['text-[0.52rem] px-1.5 py-0.5 rounded font-bold uppercase', getStatusCycleColor(proj.cycleStatus)]">{{ proj.cycleStatus }}</span>
+                                                    <span class="text-[0.55rem] text-slate-400 font-semibold">{{ proj.category }}</span>
+                                                    <span class="text-[0.52rem] text-slate-400">· {{ proj.projectOwner || 'No owner' }}</span>
+                                                </div>
+                                            </div>
+                                            <button @click="viewProjectDetails(proj)" class="ml-auto shrink-0 text-[0.6rem] font-bold text-blue-500 hover:text-blue-700 transition-colors" title="View project details">
+                                                <i class="fas fa-arrow-up-right-from-square text-[0.55rem]"></i>
+                                            </button>
+                                        </div>
+                                        <div class="relative overflow-hidden bg-slate-50" style="height:34px">
+                                            <div class="absolute inset-0 flex divide-x divide-slate-200/60 pointer-events-none">
+                                                <div v-for="n in ganttAllGridColumns.length" :key="'phdr-'+pIdx+'-'+n" class="flex-1"></div>
+                                            </div>
+                                            <div class="gantt-today-line" :style="getTodayLineStyle(ganttAllDateRange)"></div>
+                                            <div v-if="proj.stages && proj.stages.some(s => s.startDate && s.endDate)"
+                                                 :class="['gantt-bar opacity-35 !h-[6px]', getProjectColor(pIdx)]"
+                                                 :style="getGanttAllBarStyle({ startDate: proj.stages.filter(s=>s.startDate).map(s=>s.startDate).sort()[0], endDate: proj.stages.filter(s=>s.endDate).map(s=>s.endDate).sort().slice(-1)[0] }, ganttAllDateRange)">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Phase rows -->
+                                    <template v-for="(stage, sIdx) in (proj.stages || [])" :key="'gs-'+proj.id+'-'+sIdx">
+                                        <div class="gantt-container border-b border-slate-100 hover:bg-blue-50/10 transition-all bg-white">
+                                            <div class="p-2.5 pl-5 border-r border-slate-100 flex items-center gap-2">
+                                                <span :class="['w-1.5 h-5 rounded-sm shrink-0', getProjectColor(pIdx)]"></span>
+                                                <div :class="['w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm shrink-0', getStatusColor(stage.status)]">
+                                                    <i :class="['fas text-[0.45rem]', stage.icon || 'fa-tasks']"></i>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[0.65rem] font-bold text-slate-700 truncate uppercase" :title="stage.title">{{ stage.title }}</p>
+                                                    <p class="text-[0.52rem] text-slate-400 font-semibold">{{ stage.status }} · {{ calculateDays(stage.startDate, stage.endDate) }}d</p>
+                                                </div>
+                                            </div>
+                                            <div class="relative overflow-hidden" style="height:44px">
+                                                <div class="absolute inset-0 flex divide-x divide-slate-100/50 pointer-events-none">
+                                                    <div v-for="n in ganttAllGridColumns.length" :key="'gsg-'+pIdx+'-'+sIdx+'-'+n" class="flex-1"></div>
+                                                </div>
+                                                <div class="gantt-today-line" :style="getTodayLineStyle(ganttAllDateRange)"></div>
+                                                <div :class="['gantt-bar flex items-center justify-between px-2 border-b-2 border-black/10 shadow-sm', getStatusColor(stage.status)]"
+                                                     :style="getGanttAllBarStyle(stage, ganttAllDateRange)">
+                                                    <span class="text-[0.5rem] font-bold text-white uppercase truncate leading-none">{{ stage.assignee || stage.title }}</span>
+                                                    <span class="text-[0.48rem] font-bold text-white/70 whitespace-nowrap ml-1 shrink-0">{{ calculateDays(stage.startDate, stage.endDate) }}d</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Task rows: always in single mode; in all-mode only when ≤3 projects -->
+                                        <template v-if="ganttViewMode === 'single' || ganttVisibleProjects.length <= 3">
+                                            <div v-for="(task, tIdx) in (stage.tasks || [])" :key="'gt-'+proj.id+'-'+sIdx+'-'+tIdx"
+                                                 class="gantt-container border-b border-slate-50 bg-slate-50/30 hover:bg-slate-50 transition-all">
+                                                <div class="py-2 pr-3 pl-9 border-r border-slate-100 flex items-center gap-1.5">
+                                                    <i class="fas fa-level-up-alt rotate-90 text-slate-300 text-[0.48rem] shrink-0"></i>
+                                                    <div :class="['w-3 h-3 rounded-full border-2 shrink-0 flex items-center justify-center', task.done ? 'bg-emerald-400 border-emerald-400' : 'border-slate-300']">
+                                                        <i v-if="task.done" class="fas fa-check text-white" style="font-size:0.3rem"></i>
+                                                    </div>
+                                                    <span :class="['text-[0.58rem] font-semibold truncate', task.done ? 'text-slate-400 line-through' : 'text-slate-600']"
+                                                          :title="task.desc">{{ task.desc }}</span>
+                                                </div>
+                                                <div class="relative overflow-hidden" style="height:30px">
+                                                    <div class="absolute inset-0 flex divide-x divide-slate-100/50 pointer-events-none">
+                                                        <div v-for="n in ganttAllGridColumns.length" :key="'gtg-'+pIdx+'-'+sIdx+'-'+tIdx+'-'+n" class="flex-1"></div>
+                                                    </div>
+                                                    <div class="gantt-today-line" :style="getTodayLineStyle(ganttAllDateRange)"></div>
+                                                    <div v-if="task.startDate && task.endDate"
+                                                         :class="['gantt-bar flex items-center px-1 border shadow-sm !h-[10px]', task.done ? 'bg-emerald-100 border-emerald-300' : 'bg-slate-100 border-slate-300']"
+                                                         :style="getGanttAllBarStyle(task, ganttAllDateRange)">
+                                                        <span :class="['text-[0.44rem] font-bold uppercase whitespace-nowrap truncate', task.done ? 'text-emerald-600' : 'text-slate-500']">{{ calculateDays(task.startDate, task.endDate) }}d</span>
+                                                    </div>
+                                                    <span v-else class="absolute left-2 top-1/2 -translate-y-1/2 text-[0.5rem] text-slate-200 italic">—</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </template>
+
+                                </template>
+
+                                <!-- No phases fallback -->
+                                <div v-if="ganttVisibleProjects.every(p => !p.stages || !p.stages.length)" class="p-12 text-center">
+                                    <i class="fas fa-calendar-xmark text-4xl text-slate-200 mb-3"></i>
+                                    <p class="text-xs font-bold text-slate-300 uppercase">No phases found in the selected projects.</p>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 </div>
 
             </main>
@@ -2641,32 +2710,49 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
 
                 // ─── GANTT VIEW (standalone page) ─────────────────────
-                const ganttViewProject = computed(() =>
-                    ganttProjectId.value
-                        ? (projects.value.find(p => p.id === ganttProjectId.value) || filteredProjects.value[0] || null)
-                        : (filteredProjects.value[0] || null)
-                );
+                const ganttViewMode = ref('all');
+                const ganttFilterCategory = ref('ALL');
+                const ganttFilterOwner = ref('ALL');
+                const ganttFilterStatus = ref('ALL');
 
-                const ganttViewDateRange = computed(() => {
-                    const stages = ganttViewProject.value?.stages;
-                    if (!stages || !stages.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
+                const projectColors = ['bg-blue-500','bg-violet-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-cyan-500','bg-fuchsia-500','bg-teal-500'];
+                const getProjectColor = (idx) => projectColors[idx % projectColors.length];
+
+                const ganttCategories = computed(() => ['ALL', ...new Set(projects.value.map(p => p.category).filter(Boolean))]);
+                const ganttOwners    = computed(() => ['ALL', ...new Set(projects.value.map(p => p.projectOwner).filter(Boolean))]);
+
+                const ganttVisibleProjects = computed(() => {
+                    let list = projects.value.filter(p => !p.archived);
+                    if (ganttViewMode.value === 'single') {
+                        const id = ganttProjectId.value || (list[0] && list[0].id);
+                        return id ? list.filter(p => p.id === id) : list.slice(0, 1);
+                    }
+                    if (ganttFilterCategory.value !== 'ALL') list = list.filter(p => p.category === ganttFilterCategory.value);
+                    if (ganttFilterOwner.value   !== 'ALL') list = list.filter(p => p.projectOwner === ganttFilterOwner.value);
+                    if (ganttFilterStatus.value  !== 'ALL') list = list.filter(p => p.cycleStatus  === ganttFilterStatus.value);
+                    return list;
+                });
+
+                const ganttAllDateRange = computed(() => {
+                    const all = ganttVisibleProjects.value;
+                    if (!all.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
                     const ts = [];
-                    stages.forEach(s => {
+                    all.forEach(p => (p.stages || []).forEach(s => {
                         if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
                         if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
                         (s.tasks || []).forEach(t => {
                             if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
                             if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
                         });
-                    });
+                    }));
                     if (!ts.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
                     const B = 7 * 864e5;
                     const mn = new Date(Math.min(...ts) - B), mx = new Date(Math.max(...ts) + B);
                     return { start: mn, end: mx, totalDays: Math.max(1, Math.round((mx - mn) / 864e5)) };
                 });
 
-                const ganttViewGridColumns = computed(() => {
-                    const { start, end, totalDays } = ganttViewDateRange.value;
+                const ganttAllGridColumns = computed(() => {
+                    const { start, end, totalDays } = ganttAllDateRange.value;
                     const cols = [];
                     if (ganttScale.value === 'weekly') {
                         let w = 1; for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
@@ -2678,11 +2764,11 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     return cols.length > 0 ? cols : ['Timeline'];
                 });
 
-                const getGanttViewBarStyle = (item) => {
-                    if (!item.startDate || !item.endDate) return { display: 'none' };
+                const getGanttAllBarStyle = (item, range) => {
+                    if (!item || !item.startDate || !item.endDate) return { display: 'none' };
                     const s = ganttParseDate(item.startDate), e = ganttParseDate(item.endDate);
                     if (!s || !e) return { display: 'none' };
-                    const range = ganttViewDateRange.value, totalMs = range.totalDays * 864e5;
+                    const totalMs = range.totalDays * 864e5;
                     const lp = Math.max(0, Math.min(100, ((s - range.start) / totalMs) * 100));
                     const wp = Math.max(2, Math.min(100 - lp, ((e - s) / totalMs) * 100));
                     return { left: lp.toFixed(2) + '%', width: wp.toFixed(2) + '%' };
@@ -2950,7 +3036,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     collapsed, currentView, viewTitle, viewMode, searchQuery, viewerOpen, detailsOpen, editingType, editingObject, selectedProject, activeViewerStage, menuItems,
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewProject, ganttViewDateRange, ganttViewGridColumns, getGanttViewBarStyle, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
