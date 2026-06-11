@@ -14,6 +14,7 @@
                 const toast = ref({ show: false, message: '', type: 'success' });
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
+                const currentUserEmail = ref('');
 
                 // ─── EDITOR STATE ─────────────────────────────────────────
                 const activeViewerStage = ref(0);   // which phase tab is selected in the editor
@@ -162,7 +163,10 @@
                     if (typeof google === 'undefined' || !google.script) setTimeout(() => isRefreshing.value = false, 800);
                 };
 
-                onMounted(() => fetchData());
+                onMounted(() => {
+                    fetchData();
+                    gsRun('getCurrentUserEmail', [], (email) => { currentUserEmail.value = email || ''; });
+                });
 
                 // ─── DRAG & DROP (SortableJS) ─────────────────────────
                 // initSortable wires up the phases list. We use nextTick because the
@@ -207,6 +211,19 @@
                 watch(viewerOpen, (val) => {
                     if(val && editingType.value === 'project') initSortable();
                 });
+
+                // Auto-recalculate non-overridden phase statuses whenever a task
+                // is checked/unchecked inside the editor modal.
+                watch(
+                    () => editingObject.value?.stages?.flatMap(s => (s.tasks || []).map(t => t.done)).join(','),
+                    () => {
+                        if (!editingObject.value) return;
+                        editingObject.value.stages.forEach(stage => {
+                            if (!stage.statusOverride && (stage.tasks || []).length > 0)
+                                stage.status = computePhaseStatus(stage);
+                        });
+                    }
+                );
 
                 // ─── DICTATION ───────────────────────────────────────
                 // Checks if the mic is active for a specific task field.
@@ -700,9 +717,54 @@
                     viewerOpen.value = true;
                 };
 
+                // ─── PHASE STATUS AUTOMATION ──────────────────────────
+                // Derives the automated status for a phase based on task completion.
+                // Returns the current status unchanged when no tasks exist (no-op on empty phases).
+                const computePhaseStatus = (stage) => {
+                    const tasks = stage.tasks || [];
+                    if (tasks.length === 0) return stage.status;
+                    const done = tasks.filter(t => t.done).length;
+                    if (done === 0) return 'PENDING';
+                    if (done === tasks.length) return 'COMPLETED';
+                    return 'IN PROGRESS';
+                };
+
+                // Walks all phases and applies computed status to any without a manual override.
+                const recalcPhaseStatuses = (proj) => {
+                    if (!proj || !proj.stages) return;
+                    proj.stages.forEach(stage => {
+                        if (!stage.statusOverride && (stage.tasks || []).length > 0)
+                            stage.status = computePhaseStatus(stage);
+                    });
+                };
+
+                // Returns true when the current GAS user matches the project owner.
+                // Falls back to true (permissive) when running locally or owner is unset.
+                const isCurrentUserOwner = (proj) => {
+                    if (!proj || !proj.projectOwner) return true;
+                    if (!currentUserEmail.value) return true;
+                    const ownerName = proj.projectOwner.toLowerCase();
+                    const localPart = currentUserEmail.value.toLowerCase().split('@')[0];
+                    return localPart.split(/[._-]/).some(part => part.length > 2 && ownerName.includes(part));
+                };
+
+                // Called when the Project Owner confirms a manual override from the detail view.
+                const overridePhaseStatus = (stage, proj) => {
+                    stage.statusOverride = true;
+                    silentSaveProject(proj);
+                };
+
+                // Resets a phase back to automated status calculation.
+                const clearPhaseOverride = (stage, proj) => {
+                    stage.statusOverride = false;
+                    stage.status = computePhaseStatus(stage);
+                    silentSaveProject(proj);
+                };
+
                 // Used for lightweight background saves (e.g. task checkbox toggle)
                 // without going through the full save/complete flow.
                 const silentSaveProject = (proj) => {
+                    recalcPhaseStatuses(proj);
                     gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(proj))]);
                     // Also sync local state immediately so the UI doesn't flash
                     const idx = projects.value.findIndex(x => x.id === proj.id);
@@ -869,7 +931,8 @@
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
-                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView
+                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
+                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride
                 };
             }
         }).mount('#app');
