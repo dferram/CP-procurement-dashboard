@@ -502,6 +502,25 @@ function deleteDriveItem(id, isFolder) {
 }
 
 // =====================================================
+// USER IDENTITY
+// =====================================================
+
+/**
+ * Returns the email address of the currently authenticated GAS user.
+ * Used by the frontend to determine if the current user is a Project Owner,
+ * enabling the manual phase-status override dropdown.
+ * @return {string} User email, or empty string if unavailable.
+ */
+function getCurrentUserEmail() {
+  try {
+    return Session.getActiveUser().getEmail();
+  } catch (e) {
+    Logger.log('Could not get current user email: ' + e.message);
+    return '';
+  }
+}
+
+// =====================================================
 // HTML TEMPLATE HELPER
 // =====================================================
 
