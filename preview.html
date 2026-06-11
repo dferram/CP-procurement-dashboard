@@ -847,14 +847,42 @@
                                         <div>
                                             <h4 class="text-3xl font-bold text-slate-800 uppercase tracking-tight">{{ selectedProject.stages[activeViewerStage].title }}</h4>
                                             
-                                            <!-- Phase Quick-Status UI -->
-                                            <div class="flex items-center gap-2 mb-1.5 mt-1">
+                                            <!-- Phase Status: Auto-computed or Project Owner Override -->
+                                            <div class="flex items-center gap-2 mb-1.5 mt-1 flex-wrap">
                                                 <p class="text-sm font-semibold text-slate-400">Status:</p>
-                                                <select v-model="selectedProject.stages[activeViewerStage].status" @change="silentSaveProject(selectedProject)" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold uppercase rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
-                                                    <option value="PENDING">PENDING</option>
-                                                    <option value="IN PROGRESS">IN PROGRESS</option>
-                                                    <option value="COMPLETED">COMPLETED</option>
-                                                </select>
+
+                                                <!-- Auto mode: show computed badge + override button (owner only) -->
+                                                <template v-if="!selectedProject.stages[activeViewerStage].statusOverride">
+                                                    <span :class="['text-xs font-bold px-2.5 py-1 rounded-full uppercase flex items-center gap-1.5 text-white shadow-sm', getStatusColor(selectedProject.stages[activeViewerStage].status)]">
+                                                        <i class="fas fa-robot text-[0.6rem] opacity-75"></i>
+                                                        {{ selectedProject.stages[activeViewerStage].status }}
+                                                    </span>
+                                                    <button v-if="isCurrentUserOwner(selectedProject)"
+                                                            @click="selectedProject.stages[activeViewerStage].statusOverride = true"
+                                                            class="text-[0.65rem] font-bold px-2.5 py-1 rounded border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+                                                            title="You are the Project Owner — manually override this phase status">
+                                                        <i class="fas fa-user-shield text-[0.6rem]"></i> Override
+                                                    </button>
+                                                </template>
+
+                                                <!-- Override mode: owner-controlled dropdown + reset option -->
+                                                <template v-else>
+                                                    <select v-model="selectedProject.stages[activeViewerStage].status"
+                                                            @change="overridePhaseStatus(selectedProject.stages[activeViewerStage], selectedProject)"
+                                                            class="bg-amber-50 border border-amber-300 text-amber-800 text-xs font-bold uppercase rounded px-2 py-1 outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer">
+                                                        <option value="PENDING">PENDING</option>
+                                                        <option value="IN PROGRESS">IN PROGRESS</option>
+                                                        <option value="COMPLETED">COMPLETED</option>
+                                                    </select>
+                                                    <span class="text-[0.6rem] font-bold text-amber-600 flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                                                        <i class="fas fa-lock text-[0.55rem]"></i> Owner Override
+                                                    </span>
+                                                    <button @click="clearPhaseOverride(selectedProject.stages[activeViewerStage], selectedProject)"
+                                                            class="text-[0.6rem] font-bold px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-colors flex items-center gap-1"
+                                                            title="Restore automated status calculation">
+                                                        <i class="fas fa-rotate-left text-[0.55rem]"></i> Reset Auto
+                                                    </button>
+                                                </template>
                                             </div>
 
                                             <p class="text-sm font-medium text-slate-500"><i class="fas fa-user-circle mr-1.5"></i> {{ selectedProject.stages[activeViewerStage].assignee || 'Unassigned' }}</p>
@@ -1273,6 +1301,7 @@
                                                 <p :class="['text-xs font-bold truncate uppercase tracking-tight', activeViewerStage === idx ? 'text-blue-600' : 'text-slate-700']" :title="stage.title">{{ stage.title }}</p>
                                                 <div class="flex items-center gap-2 mt-1">
                                                     <span class="text-[0.6rem] font-semibold text-slate-400 uppercase">{{ stage.status }}</span>
+                                                    <i v-if="stage.statusOverride" class="fas fa-lock text-[0.55rem] text-amber-400" title="Status manually overridden by Project Owner"></i>
                                                     <span class="text-[0.6rem] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200 truncate max-w-[80px]" :title="stage.assignee">{{ stage.assignee || 'Unassigned' }}</span>
                                                 </div>
                                             </div>
@@ -1342,12 +1371,27 @@
                                             </div>
                                             <div>
                                                 <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-2">Phase Status</label>
-                                                <div class="flex gap-2 bg-slate-50 p-3 rounded-custom border border-slate-200 h-auto">
-                                                    <button v-for="st in ['PENDING', 'IN PROGRESS', 'COMPLETED']" :key="st" 
-                                                            @click="editingObject.stages[activeViewerStage].status = st" 
-                                                            :class="['flex-1 py-2 rounded text-[0.65rem] font-bold border transition-all shadow-sm', editingObject.stages[activeViewerStage].status === st ? 'bg-blue-600 text-white border-blue-600 scale-105' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100']">
-                                                        {{ st }}
-                                                    </button>
+                                                <div class="bg-slate-50 p-3 rounded-custom border border-slate-200">
+                                                    <div class="flex gap-2 mb-2">
+                                                        <button v-for="st in ['PENDING', 'IN PROGRESS', 'COMPLETED']" :key="st"
+                                                                @click="editingObject.stages[activeViewerStage].status = st; editingObject.stages[activeViewerStage].statusOverride = true"
+                                                                :class="['flex-1 py-2 rounded text-[0.65rem] font-bold border transition-all shadow-sm', editingObject.stages[activeViewerStage].status === st ? 'bg-blue-600 text-white border-blue-600 scale-105' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100']">
+                                                            {{ st }}
+                                                        </button>
+                                                    </div>
+                                                    <div class="flex items-center justify-between pt-1">
+                                                        <span v-if="editingObject.stages[activeViewerStage].statusOverride" class="text-[0.6rem] font-bold text-amber-600 flex items-center gap-1">
+                                                            <i class="fas fa-lock text-[0.55rem]"></i> Override active
+                                                        </span>
+                                                        <span v-else class="text-[0.6rem] font-bold text-emerald-600 flex items-center gap-1">
+                                                            <i class="fas fa-robot text-[0.55rem]"></i> Auto-computed
+                                                        </span>
+                                                        <button v-if="editingObject.stages[activeViewerStage].statusOverride"
+                                                                @click="editingObject.stages[activeViewerStage].statusOverride = false; editingObject.stages[activeViewerStage].status = computePhaseStatus(editingObject.stages[activeViewerStage])"
+                                                                class="text-[0.6rem] font-bold text-slate-400 hover:text-emerald-600 transition-colors flex items-center gap-1">
+                                                            <i class="fas fa-rotate-left text-[0.55rem]"></i> Reset Auto
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1503,6 +1547,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const toast = ref({ show: false, message: '', type: 'success' });
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
+                const currentUserEmail = ref('');
 
                 // ─── EDITOR STATE ─────────────────────────────────────────
                 const activeViewerStage = ref(0);   // which phase tab is selected in the editor
@@ -1940,7 +1985,10 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     }, 300);
                 };
 
-                onMounted(() => fetchData());
+                onMounted(() => {
+                    fetchData();
+                    gsRun('getCurrentUserEmail', [], (email) => { currentUserEmail.value = email || ''; });
+                });
 
                 // ─── DRAG & DROP (SortableJS) ─────────────────────────
                 // initSortable wires up the phases list. We use nextTick because the
@@ -1985,6 +2033,19 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 watch(viewerOpen, (val) => {
                     if(val && editingType.value === 'project') initSortable();
                 });
+
+                // Auto-recalculate non-overridden phase statuses whenever a task
+                // is checked/unchecked inside the editor modal.
+                watch(
+                    () => editingObject.value?.stages?.flatMap(s => (s.tasks || []).map(t => t.done)).join(','),
+                    () => {
+                        if (!editingObject.value) return;
+                        editingObject.value.stages.forEach(stage => {
+                            if (!stage.statusOverride && (stage.tasks || []).length > 0)
+                                stage.status = computePhaseStatus(stage);
+                        });
+                    }
+                );
 
                 // ─── DICTATION ───────────────────────────────────────
                 // Checks if the mic is active for a specific task field.
@@ -2478,9 +2539,47 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     viewerOpen.value = true;
                 };
 
+                // ─── PHASE STATUS AUTOMATION ──────────────────────────
+                const computePhaseStatus = (stage) => {
+                    const tasks = stage.tasks || [];
+                    if (tasks.length === 0) return stage.status;
+                    const done = tasks.filter(t => t.done).length;
+                    if (done === 0) return 'PENDING';
+                    if (done === tasks.length) return 'COMPLETED';
+                    return 'IN PROGRESS';
+                };
+
+                const recalcPhaseStatuses = (proj) => {
+                    if (!proj || !proj.stages) return;
+                    proj.stages.forEach(stage => {
+                        if (!stage.statusOverride && (stage.tasks || []).length > 0)
+                            stage.status = computePhaseStatus(stage);
+                    });
+                };
+
+                const isCurrentUserOwner = (proj) => {
+                    if (!proj || !proj.projectOwner) return true;
+                    if (!currentUserEmail.value) return true;
+                    const ownerName = proj.projectOwner.toLowerCase();
+                    const localPart = currentUserEmail.value.toLowerCase().split('@')[0];
+                    return localPart.split(/[._-]/).some(part => part.length > 2 && ownerName.includes(part));
+                };
+
+                const overridePhaseStatus = (stage, proj) => {
+                    stage.statusOverride = true;
+                    silentSaveProject(proj);
+                };
+
+                const clearPhaseOverride = (stage, proj) => {
+                    stage.statusOverride = false;
+                    stage.status = computePhaseStatus(stage);
+                    silentSaveProject(proj);
+                };
+
                 // Used for lightweight background saves (e.g. task checkbox toggle)
                 // without going through the full save/complete flow.
                 const silentSaveProject = (proj) => {
+                    recalcPhaseStatuses(proj);
                     gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(proj))]);
                     // Also sync local state immediately so the UI doesn't flash
                     const idx = projects.value.findIndex(x => x.id === proj.id);
@@ -2647,7 +2746,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
-                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView
+                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
+                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride
                 };
             }
         }).mount('#app');
