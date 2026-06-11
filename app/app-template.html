@@ -234,27 +234,27 @@
                             <!-- Charts — 2×2 grid -->
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-chart-pie mr-1.5" style="color:var(--cp-blue)"></i>Portfolio Status Distribution</h4>
+                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-chart-pie mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.status }}</h4>
                                     <div class="relative flex-1" style="min-height:220px"><canvas ref="chartStatusRef"></canvas></div>
                                 </div>
                                 <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-folder-tree mr-1.5" style="color:var(--cp-blue)"></i>Budget by Category</h4>
+                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-folder-tree mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.budget }}</h4>
                                     <div class="relative flex-1" style="min-height:220px"><canvas ref="chartBudgetRef"></canvas></div>
                                 </div>
                                 <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-layer-group mr-1.5" style="color:var(--cp-blue)"></i>Projects by Current Phase</h4>
+                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-layer-group mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.phase }}</h4>
                                     <div class="relative flex-1" style="min-height:220px"><canvas ref="chartPhaseRef"></canvas></div>
                                 </div>
                                 <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-users mr-1.5" style="color:var(--cp-blue)"></i>Workload by Owner</h4>
+                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-users mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.owner }}</h4>
                                     <div class="relative flex-1" style="min-height:220px"><canvas ref="chartOwnerRef"></canvas></div>
                                 </div>
                             </div>
 
                             <!-- 2.5 Progress per Project — full width -->
                             <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5">
-                                <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-bars-progress mr-1.5" style="color:var(--cp-blue)"></i>Individual Project Progress</h4>
-                                <div class="relative" :style="{ height: Math.max(180, summaryProgressPerProject.length * 32 + 40) + 'px' }">
+                                <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-bars-progress mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.progress }}</h4>
+                                <div class="relative" :style="{ height: (filterProject !== 'ALL' ? Math.max(180, (selectedProjectObj?.stages?.length || 1) * 45 + 40) : Math.max(180, summaryProgressPerProject.length * 32 + 40)) + 'px' }">
                                     <canvas ref="chartProgressRef"></canvas>
                                 </div>
                             </div>
