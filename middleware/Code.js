@@ -25,9 +25,14 @@ function setupDatabase() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     const SHEET_SCHEMAS = {
-      Projects: ['id', 'code', 'title', 'category', 'status', 'owner', 'members',
-                 'externalTeam', 'stages', 'driveFolderId', 'webhookUrl',
-                 'createdAt', 'updatedAt'],
+      Projects: [
+        'id', 'code', 'title', 'folder', 'category',
+        'cycleStatus', 'archived', 'projectOwner',
+        'members', 'externalTeam', 'stages', 'finances',
+        'detail', 'reason', 'generalComments', 'icon',
+        'driveFolderId', 'driveRootUrl', 'webhookUrl',
+        'createdAt', 'updatedAt'
+      ],
       Templates: ['id', 'name', 'category', 'stages', 'createdAt'],
       Folders:   ['id', 'projectId', 'name', 'driveFolderId', 'createdAt'],
       Configuration: ['key', 'value']
@@ -58,7 +63,18 @@ function setupDatabase() {
           Logger.log('Valores por defecto de Configuration insertados');
         }
       } else {
-        Logger.log(`Hoja ya existe: ${sheetName}`);
+        // Migrate: add new columns if the schema has grown
+        const existingCols = sheet.getLastColumn();
+        if (existingCols < headers.length) {
+          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+          sheet.getRange(1, existingCols + 1, 1, headers.length - existingCols)
+            .setFontWeight('bold')
+            .setBackground('#1F2937')
+            .setFontColor('#FFFFFF');
+          Logger.log(`Hoja ${sheetName}: migrada de ${existingCols} a ${headers.length} columnas`);
+        } else {
+          Logger.log(`Hoja ya existe: ${sheetName}`);
+        }
       }
     });
 
@@ -105,20 +121,34 @@ function _deserializeProject(row) {
   const _tryParse = (val, fallback) => {
     try { return val ? JSON.parse(val) : fallback; } catch(e) { return fallback; }
   };
+  // Columns: 0=id, 1=code, 2=title, 3=folder, 4=category,
+  //   5=cycleStatus, 6=archived, 7=projectOwner,
+  //   8=members, 9=externalTeam, 10=stages, 11=finances,
+  //   12=detail, 13=reason, 14=generalComments, 15=icon,
+  //   16=driveFolderId, 17=driveRootUrl, 18=webhookUrl,
+  //   19=createdAt, 20=updatedAt
   return {
-    id:           row[0]  || '',
-    code:         row[1]  || '',
-    title:        row[2]  || '',
-    category:     row[3]  || '',
-    status:       row[4]  || 'active',
-    owner:        _tryParse(row[5], {}),
-    members:      _tryParse(row[6], []),
-    externalTeam: _tryParse(row[7], []),
-    stages:       _tryParse(row[8], []),
-    driveFolderId:row[9]  || '',
-    webhookUrl:   row[10] || '',
-    createdAt:    row[11] || '',
-    updatedAt:    row[12] || ''
+    id:              String(row[0]  || ''),
+    code:            row[1]  || '',
+    title:           row[2]  || '',
+    folder:          row[3]  || 'Uncategorized',
+    category:        row[4]  || '',
+    cycleStatus:     row[5]  || 'ON TRACK',
+    archived:        row[6]  === 'true' || row[6]  === true,
+    projectOwner:    row[7]  || '',
+    members:         _tryParse(row[8],  []),
+    externalTeam:    _tryParse(row[9],  []),
+    stages:          _tryParse(row[10], []),
+    finances:        _tryParse(row[11], { amount: null, unit: 'none', calculated: 0 }),
+    detail:          row[12] || '',
+    reason:          row[13] || '',
+    generalComments: row[14] || '',
+    icon:            row[15] || 'fa-rocket',
+    driveFolderId:   row[16] || '',
+    driveRootUrl:    row[17] || '',
+    webhookUrl:      row[18] || '',
+    createdAt:       row[19] || '',
+    updatedAt:       row[20] || ''
   };
 }
 
@@ -178,20 +208,29 @@ function saveProject(project) {
       }
     }
 
+    // Columns must match _deserializeProject order exactly (21 cols)
     const rowData = [
       project.id,
-      project.code,
-      project.title,
-      project.category      || '',
-      project.status        || 'active',
-      JSON.stringify(project.owner          || {}),
-      JSON.stringify(project.members        || []),
-      JSON.stringify(project.externalTeam   || []),
-      JSON.stringify(project.stages         || []),
-      project.driveFolderId || '',
-      project.webhookUrl    || '',
-      project.createdAt,
-      project.updatedAt
+      project.code            || '',
+      project.title           || '',
+      project.folder          || 'Uncategorized',
+      project.category        || '',
+      project.cycleStatus     || 'ON TRACK',
+      project.archived        ? 'true' : 'false',
+      project.projectOwner    || '',
+      JSON.stringify(project.members         || []),
+      JSON.stringify(project.externalTeam    || []),
+      JSON.stringify(project.stages          || []),
+      JSON.stringify(project.finances        || { amount: null, unit: 'none', calculated: 0 }),
+      project.detail          || '',
+      project.reason          || '',
+      project.generalComments || '',
+      project.icon            || 'fa-rocket',
+      project.driveFolderId   || '',
+      project.driveRootUrl    || '',
+      project.webhookUrl      || project.chatWebhook || '',
+      project.createdAt       || '',
+      project.updatedAt       || ''
     ];
 
     const existing = sheetRepo.findRow('Projects', project.id, 0);
