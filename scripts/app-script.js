@@ -670,33 +670,50 @@
                 };
 
 
-                // ─── GANTT VIEW (standalone page) ─────────────────────
-                const ganttViewProject = computed(() =>
-                    ganttProjectId.value
-                        ? (projects.value.find(p => p.id === ganttProjectId.value) || filteredProjects.value[0] || null)
-                        : (filteredProjects.value[0] || null)
-                );
+                // ─── GANTT VIEW (multi-project timeline) ─────────────────
+                const ganttViewMode = ref('all');
+                const ganttFilterCategory = ref('ALL');
+                const ganttFilterOwner = ref('ALL');
+                const ganttFilterStatus = ref('ALL');
 
-                const ganttViewDateRange = computed(() => {
-                    const stages = ganttViewProject.value?.stages;
-                    if (!stages || !stages.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
+                const projectColors = ['bg-blue-500','bg-violet-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-cyan-500','bg-fuchsia-500','bg-teal-500'];
+                const getProjectColor = (idx) => projectColors[idx % projectColors.length];
+
+                const ganttCategories = computed(() => ['ALL', ...new Set(projects.value.map(p => p.category).filter(Boolean))]);
+                const ganttOwners    = computed(() => ['ALL', ...new Set(projects.value.map(p => p.projectOwner).filter(Boolean))]);
+
+                const ganttVisibleProjects = computed(() => {
+                    let list = projects.value.filter(p => !p.archived);
+                    if (ganttViewMode.value === 'single') {
+                        const id = ganttProjectId.value || (list[0] && list[0].id);
+                        return id ? list.filter(p => p.id === id) : list.slice(0, 1);
+                    }
+                    if (ganttFilterCategory.value !== 'ALL') list = list.filter(p => p.category === ganttFilterCategory.value);
+                    if (ganttFilterOwner.value   !== 'ALL') list = list.filter(p => p.projectOwner === ganttFilterOwner.value);
+                    if (ganttFilterStatus.value  !== 'ALL') list = list.filter(p => p.cycleStatus  === ganttFilterStatus.value);
+                    return list;
+                });
+
+                const ganttAllDateRange = computed(() => {
+                    const all = ganttVisibleProjects.value;
+                    if (!all.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
                     const ts = [];
-                    stages.forEach(s => {
+                    all.forEach(p => (p.stages || []).forEach(s => {
                         if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
                         if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
                         (s.tasks || []).forEach(t => {
                             if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
                             if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
                         });
-                    });
+                    }));
                     if (!ts.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
                     const B = 7 * 864e5;
                     const mn = new Date(Math.min(...ts) - B), mx = new Date(Math.max(...ts) + B);
                     return { start: mn, end: mx, totalDays: Math.max(1, Math.round((mx - mn) / 864e5)) };
                 });
 
-                const ganttViewGridColumns = computed(() => {
-                    const { start, end, totalDays } = ganttViewDateRange.value;
+                const ganttAllGridColumns = computed(() => {
+                    const { start, end, totalDays } = ganttAllDateRange.value;
                     const cols = [];
                     if (ganttScale.value === 'weekly') {
                         let w = 1; for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
@@ -708,11 +725,11 @@
                     return cols.length > 0 ? cols : ['Timeline'];
                 });
 
-                const getGanttViewBarStyle = (item) => {
-                    if (!item.startDate || !item.endDate) return { display: 'none' };
+                const getGanttAllBarStyle = (item, range) => {
+                    if (!item || !item.startDate || !item.endDate) return { display: 'none' };
                     const s = ganttParseDate(item.startDate), e = ganttParseDate(item.endDate);
                     if (!s || !e) return { display: 'none' };
-                    const range = ganttViewDateRange.value, totalMs = range.totalDays * 864e5;
+                    const totalMs = range.totalDays * 864e5;
                     const lp = Math.max(0, Math.min(100, ((s - range.start) / totalMs) * 100));
                     const wp = Math.max(2, Math.min(100 - lp, ((e - s) / totalMs) * 100));
                     return { left: lp.toFixed(2) + '%', width: wp.toFixed(2) + '%' };
@@ -987,7 +1004,7 @@
                     collapsed, currentView, viewTitle, viewMode, searchQuery, viewerOpen, detailsOpen, editingType, editingObject, selectedProject, activeViewerStage, menuItems,
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewProject, ganttViewDateRange, ganttViewGridColumns, getGanttViewBarStyle, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
