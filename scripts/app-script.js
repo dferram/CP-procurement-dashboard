@@ -45,6 +45,7 @@
 
                 // ─── GANTT STATE ──────────────────────────────────────────
                 const ganttScale = ref('monthly');
+                const ganttProjectId = ref(null);
 
                 // ─── FOLDER STATE ─────────────────────────────────────────
                 const folderState = ref({});
@@ -77,7 +78,8 @@
                     { id: 'dashboard', icon: 'fa-chart-pie', label: 'Portfolio' }, 
                     { id: 'database', icon: 'fa-database', label: 'Database' },
                     { id: 'templates', icon: 'fa-scroll', label: 'Templates' },
-                    { id: 'config', icon: 'fa-cogs', label: 'Configuration' }
+                    { id: 'config', icon: 'fa-cogs', label: 'Configuration' },
+                    { id: 'gantt', icon: 'fa-bars-progress', label: 'Gantt Timeline' }
                 ];
 
                 // ─── COMPUTED: UI ─────────────────────────────────────
@@ -663,13 +665,72 @@
                     const range = projectDateRange.value;
                     const totalMs = range.totalDays * 864e5;
                     const leftPct  = Math.max(0, Math.min(100, ((start - range.start) / totalMs) * 100));
-                    const widthPct = Math.max(2, ((end - start) / totalMs) * 100);
+                    const widthPct = Math.max(2, Math.min(100 - leftPct, ((end - start) / totalMs) * 100));
                     return { left: leftPct.toFixed(2) + '%', width: widthPct.toFixed(2) + '%' };
                 };
 
 
+                // ─── GANTT VIEW (standalone page) ─────────────────────
+                const ganttViewProject = computed(() =>
+                    ganttProjectId.value
+                        ? (projects.value.find(p => p.id === ganttProjectId.value) || filteredProjects.value[0] || null)
+                        : (filteredProjects.value[0] || null)
+                );
+
+                const ganttViewDateRange = computed(() => {
+                    const stages = ganttViewProject.value?.stages;
+                    if (!stages || !stages.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
+                    const ts = [];
+                    stages.forEach(s => {
+                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
+                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
+                        (s.tasks || []).forEach(t => {
+                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
+                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
+                        });
+                    });
+                    if (!ts.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
+                    const B = 7 * 864e5;
+                    const mn = new Date(Math.min(...ts) - B), mx = new Date(Math.max(...ts) + B);
+                    return { start: mn, end: mx, totalDays: Math.max(1, Math.round((mx - mn) / 864e5)) };
+                });
+
+                const ganttViewGridColumns = computed(() => {
+                    const { start, end, totalDays } = ganttViewDateRange.value;
+                    const cols = [];
+                    if (ganttScale.value === 'weekly') {
+                        let w = 1; for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
+                    } else if (ganttScale.value === 'yearly') {
+                        let c = new Date(start); while (c.getFullYear() <= end.getFullYear()) { cols.push(c.getFullYear().toString()); c.setFullYear(c.getFullYear() + 1); }
+                    } else {
+                        let c = new Date(start); while (c < end) { cols.push(c.toLocaleString('en-US', { month: 'short', year: '2-digit' })); c.setMonth(c.getMonth() + 1); }
+                    }
+                    return cols.length > 0 ? cols : ['Timeline'];
+                });
+
+                const getGanttViewBarStyle = (item) => {
+                    if (!item.startDate || !item.endDate) return { display: 'none' };
+                    const s = ganttParseDate(item.startDate), e = ganttParseDate(item.endDate);
+                    if (!s || !e) return { display: 'none' };
+                    const range = ganttViewDateRange.value, totalMs = range.totalDays * 864e5;
+                    const lp = Math.max(0, Math.min(100, ((s - range.start) / totalMs) * 100));
+                    const wp = Math.max(2, Math.min(100 - lp, ((e - s) / totalMs) * 100));
+                    return { left: lp.toFixed(2) + '%', width: wp.toFixed(2) + '%' };
+                };
+
+                const getTodayLineStyle = (range) => {
+                    const today = new Date();
+                    const lp = ((today - range.start) / (range.totalDays * 864e5)) * 100;
+                    return (lp < 0 || lp > 100) ? { display: 'none' } : { left: lp.toFixed(2) + '%' };
+                };
+
                 // ─── PROJECT VIEWER & EDITOR ──────────────────────────
-                const getStatusColor = (s) => s === 'COMPLETED' ? 'bg-emerald-500' : (s === 'IN PROGRESS' ? 'bg-blue-500' : 'bg-slate-300');
+                const getStatusColor = (s) => {
+                    if (s === 'COMPLETED')   return 'bg-emerald-500';
+                    if (s === 'IN PROGRESS') return 'bg-blue-500';
+                    if (s === 'STOPPED')     return 'bg-red-500';
+                    return 'bg-slate-300';
+                };
                 const getStatusCycleColor = (s) => {
                     if (s === 'ON TRACK')  return 'bg-emerald-100 text-emerald-700';
                     if (s === 'DELAYED')   return 'bg-amber-100 text-amber-700';
@@ -766,9 +827,9 @@
                 const silentSaveProject = (proj) => {
                     recalcPhaseStatuses(proj);
                     gsRun('saveProjectToSheet', [JSON.parse(JSON.stringify(proj))]);
-                    // Also sync local state immediately so the UI doesn't flash
                     const idx = projects.value.findIndex(x => x.id === proj.id);
                     if (idx > -1) projects.value[idx] = JSON.parse(JSON.stringify(proj));
+                    if (selectedProject.value?.id === proj.id) selectedProject.value = JSON.parse(JSON.stringify(proj));
                 };
 
                 const confirmDeleteProject = async (p) => {
@@ -926,7 +987,7 @@
                     collapsed, currentView, viewTitle, viewMode, searchQuery, viewerOpen, detailsOpen, editingType, editingObject, selectedProject, activeViewerStage, menuItems,
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewProject, ganttViewDateRange, ganttViewGridColumns, getGanttViewBarStyle, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
