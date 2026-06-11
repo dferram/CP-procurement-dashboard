@@ -38,9 +38,10 @@
                 const driveFolders = ref([]);
 
                 // ─── FILTER & SORT STATE ──────────────────────────────────
-                const filterStatus = ref('ALL');
-                const filterOwner = ref('ALL');
+                const filterStatus  = ref('ALL');
+                const filterOwner  = ref('ALL');
                 const filterFolder = ref('ALL');
+                const filterProject = ref('ALL');
                 const sortBy = ref('date_desc');
 
                 // ─── GANTT STATE ──────────────────────────────────────────
@@ -168,6 +169,7 @@
                 onMounted(() => {
                     fetchData();
                     gsRun('getCurrentUserEmail', [], (email) => { currentUserEmail.value = email || ''; });
+                    if (currentView.value === 'summary') nextTick(initCharts);
                 });
 
                 // ─── DRAG & DROP (SortableJS) ─────────────────────────
@@ -502,9 +504,10 @@
                     let res = projects.value.filter(p => p.archived === showArch);
                     
                     if (searchQuery.value) res = res.filter(p => p.title.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.code.toLowerCase().includes(searchQuery.value.toLowerCase()));
-                    if (filterStatus.value !== 'ALL') res = res.filter(p => p.cycleStatus === filterStatus.value);
-                    if (filterOwner.value !== 'ALL') res = res.filter(p => p.projectOwner === filterOwner.value || (!p.projectOwner && filterOwner.value === 'Unassigned'));
-                    if (filterFolder.value !== 'ALL') res = res.filter(p => (p.folder || 'Uncategorized') === filterFolder.value);
+                    if (filterStatus.value  !== 'ALL') res = res.filter(p => p.cycleStatus === filterStatus.value);
+                    if (filterOwner.value   !== 'ALL') res = res.filter(p => p.projectOwner === filterOwner.value || (!p.projectOwner && filterOwner.value === 'Unassigned'));
+                    if (filterFolder.value  !== 'ALL') res = res.filter(p => (p.folder || 'Uncategorized') === filterFolder.value);
+                    if (filterProject.value !== 'ALL') res = res.filter(p => String(p.id) === String(filterProject.value));
 
                     res.sort((a, b) => {
                         if (sortBy.value === 'name_asc') return a.title.localeCompare(b.title);
@@ -592,6 +595,227 @@
                     });
 
                     return { total, active, archived, alerts, ftgTotal: formatFinance(ftgTotalNum), onCostTotal: formatFinance(onCostTotalNum), ftgCount, onCostCount };
+                });
+
+                // ─── PROCUREMENT ANALYTICS (Executive Summary) ────────
+                const chartStatusRef   = ref(null);
+                const chartBudgetRef   = ref(null);
+                const chartPhaseRef    = ref(null);
+                const chartOwnerRef    = ref(null);
+                const chartProgressRef = ref(null);
+                const chartInstances   = {};
+
+                const procurementStats = computed(() => {
+                    const active = filteredProjects.value.filter(p => !p.archived);
+                    const onTrackCount = active.filter(p => p.cycleStatus === 'ON TRACK').length;
+                    const pctOnTime = active.length ? Math.round((onTrackCount / active.length) * 100) : 0;
+                    let investment = 0, savings = 0;
+                    active.forEach(p => {
+                        if (p.finances?.calculated) {
+                            if (p.finances.calculated > 0) investment += p.finances.calculated;
+                            else savings += Math.abs(p.finances.calculated);
+                        }
+                    });
+                    const openAlerts = active.reduce((acc, p) => acc + getProjectAlerts(p), 0);
+                    const avgProgress = active.length ? Math.round(active.reduce((s, p) => s + calculateProgress(p), 0) / active.length) : 0;
+                    return { activeCount: active.length, pctOnTime, investment, savings, openAlerts, avgProgress };
+                });
+
+                const summaryStatusData = computed(() => {
+                    const active = filteredProjects.value.filter(p => !p.archived);
+                    return {
+                        labels: ['ON TRACK','DELAYED','AT RISK','CANCELLED'],
+                        values: [
+                            active.filter(p => p.cycleStatus === 'ON TRACK').length,
+                            active.filter(p => p.cycleStatus === 'DELAYED').length,
+                            active.filter(p => p.cycleStatus === 'AT RISK').length,
+                            active.filter(p => p.cycleStatus === 'CANCELLED').length,
+                        ]
+                    };
+                });
+
+                const summaryBudgetByFolder = computed(() =>
+                    customFolders.value.map(folder => {
+                        const fps = filteredProjects.value.filter(p => (p.folder || 'Uncategorized') === folder && !p.archived);
+                        const investment = fps.filter(p => p.finances?.calculated > 0).reduce((s, p) => s + p.finances.calculated, 0);
+                        const savings    = fps.filter(p => p.finances?.calculated < 0).reduce((s, p) => s + Math.abs(p.finances.calculated), 0);
+                        return { folder, investment, savings };
+                    })
+                );
+
+                const summaryProjectsByPhase = computed(() => {
+                    const counts = {};
+                    filteredProjects.value.filter(p => !p.archived).forEach(p => {
+                        const phase = getCurrentPhase(p);
+                        counts[phase] = (counts[phase] || 0) + 1;
+                    });
+                    return counts;
+                });
+
+                const summaryProjectsByOwner = computed(() => {
+                    const counts = {};
+                    filteredProjects.value.filter(p => !p.archived).forEach(p => {
+                        const owner = p.projectOwner || 'Unassigned';
+                        counts[owner] = (counts[owner] || 0) + 1;
+                    });
+                    return counts;
+                });
+
+                const summaryProgressPerProject = computed(() =>
+                    filteredProjects.value
+                        .filter(p => !p.archived)
+                        .map(p => ({ label: p.code || p.title, progress: calculateProgress(p), status: p.cycleStatus }))
+                        .sort((a, b) => b.progress - a.progress)
+                );
+
+                const selectedProjectObj = computed(() =>
+                    filterProject.value !== 'ALL'
+                        ? projects.value.find(p => String(p.id) === String(filterProject.value)) || null
+                        : null
+                );
+
+                const projectPhaseStatusData = computed(() => {
+                    const p = selectedProjectObj.value;
+                    if (!p?.stages) return { labels: [], values: [] };
+                    const counts = {};
+                    p.stages.forEach(s => { const st = s.status || 'Pending'; counts[st] = (counts[st] || 0) + 1; });
+                    return { labels: Object.keys(counts), values: Object.values(counts) };
+                });
+
+                const projectPhaseProgress = computed(() => {
+                    const p = selectedProjectObj.value;
+                    if (!p?.stages) return [];
+                    return p.stages.map(s => {
+                        const tasks = s.tasks || [];
+                        const done = tasks.filter(t => t.done).length;
+                        const total = tasks.length;
+                        const progress = total > 0 ? Math.round((done / total) * 100) : (s.status === 'COMPLETE' || s.status === 'DONE' ? 100 : 0);
+                        return { label: s.title, progress, status: s.status, alerts: tasks.filter(t => t.alert).length };
+                    });
+                });
+
+                const projectTasksData = computed(() => {
+                    const p = selectedProjectObj.value;
+                    if (!p?.stages) return { done: 0, pending: 0, alert: 0 };
+                    let done = 0, pending = 0, alert = 0;
+                    p.stages.forEach(s => (s.tasks || []).forEach(t => { if (t.done) done++; else if (t.alert) alert++; else pending++; }));
+                    return { done, pending, alert };
+                });
+
+                const chartTitles = computed(() => {
+                    const ip = filterProject.value !== 'ALL';
+                    return {
+                        status:   ip ? 'Fases por Status'           : 'Portfolio Status Distribution',
+                        budget:   ip ? 'Progreso por Fase'           : 'Budget by Category',
+                        phase:    ip ? 'Resumen de Tareas'            : 'Projects by Current Phase',
+                        owner:    ip ? 'Alertas Activas por Fase'     : 'Workload by Owner',
+                        progress: ip ? 'Desglose de Tareas por Fase'  : 'Individual Project Progress',
+                    };
+                });
+
+                const insights = computed(() => {
+                    if (filterProject.value !== 'ALL') {
+                        const p = selectedProjectObj.value;
+                        if (!p) return [];
+                        const list = [];
+                        const progress = calculateProgress(p);
+                        const phase = getCurrentPhase(p);
+                        const alertCount = getProjectAlerts(p);
+                        const stages = p.stages || [];
+                        const doneStages = stages.filter(s => s.status === 'COMPLETE' || s.status === 'DONE').length;
+                        const noDateStages = stages.filter(s => !s.startDate || !s.endDate).length;
+                        const allTasks = stages.flatMap(s => s.tasks || []);
+                        const doneTasks = allTasks.filter(t => t.done).length;
+                        list.push({ type: progress >= 75 ? 'success' : progress >= 40 ? 'info' : 'warning', text: `Progreso: ${progress}% — Fase activa: ${phase}` });
+                        if (p.cycleStatus === 'DELAYED' || p.cycleStatus === 'AT RISK') list.push({ type: 'warning', text: `Proyecto en estado ${p.cycleStatus}` });
+                        if (alertCount > 0) list.push({ type: 'error', text: `${alertCount} tarea(s) con alerta activa` });
+                        list.push({ type: 'info', text: `${doneTasks} de ${allTasks.length} tareas completadas — ${doneStages} de ${stages.length} fases finalizadas` });
+                        if (noDateStages > 0) list.push({ type: 'info', text: `${noDateStages} fase(s) sin fechas de inicio/fin` });
+                        if (!p.projectOwner) list.push({ type: 'info', text: 'Sin responsable asignado al proyecto' });
+                        return list;
+                    }
+                    const active = filteredProjects.value.filter(p => !p.archived);
+                    const atRisk = active.filter(p => p.cycleStatus === 'DELAYED' || p.cycleStatus === 'AT RISK').length;
+                    const openAlerts = active.reduce((acc, p) => acc + getProjectAlerts(p), 0);
+                    const noOwner = active.filter(p => !p.projectOwner).length;
+                    const noDates = active.filter(p => p.stages?.some(s => !s.startDate)).length;
+                    const avgProgress = active.length ? Math.round(active.reduce((s, p) => s + calculateProgress(p), 0) / active.length) : 0;
+                    const list = [];
+                    if (atRisk > 0)       list.push({ type: 'warning', text: `${atRisk} proyecto(s) DELAYED o AT RISK requieren atención` });
+                    if (openAlerts > 0)   list.push({ type: 'error',   text: `${openAlerts} tarea(s) con alerta activa sin resolver` });
+                    if (noOwner > 0)      list.push({ type: 'info',    text: `${noOwner} proyecto(s) sin responsable asignado` });
+                    if (noDates > 0)      list.push({ type: 'info',    text: `${noDates} proyecto(s) con fases sin cronograma` });
+                    if (avgProgress > 75) list.push({ type: 'success', text: `Portafolio en etapa avanzada — ${avgProgress}% de progreso promedio` });
+                    return list;
+                });
+
+                const destroyCharts = () => {
+                    ['status','budget','phase','owner','progress'].forEach(k => {
+                        if (chartInstances[k]) { chartInstances[k].destroy(); chartInstances[k] = null; }
+                    });
+                };
+
+                const initCharts = () => {
+                    destroyCharts();
+                    if (typeof Chart === 'undefined') return;
+                    const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
+                    const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETE':'#0047BB','DONE':'#0047BB','STOPPED':'#6b7280' };
+                    if (filterProject.value !== 'ALL') {
+                        // ── PROJECT MODE ──────────────────────────────────
+                        if (chartStatusRef.value) {
+                            const psd = projectPhaseStatusData.value;
+                            chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:psd.labels, datasets:[{ data:psd.values, backgroundColor:psd.labels.map(l=>statusMap[l]||'#94a3b8'), borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                        }
+                        if (chartBudgetRef.value) {
+                            const pp = projectPhaseProgress.value;
+                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completado', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                        }
+                        if (chartPhaseRef.value) {
+                            const td = projectTasksData.value;
+                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#94a3b8','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                        }
+                        if (chartOwnerRef.value) {
+                            const pp = projectPhaseProgress.value;
+                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alertas', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                        }
+                        if (chartProgressRef.value) {
+                            const p = selectedProjectObj.value;
+                            const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
+                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#94a3b8' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
+                        }
+                    } else {
+                        // ── PORTFOLIO MODE ────────────────────────────────
+                        if (chartStatusRef.value) {
+                            const sd = summaryStatusData.value;
+                            chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:sd.labels, datasets:[{ data:sd.values, backgroundColor:['#10b981','#f59e0b','#f97316','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                        }
+                        if (chartBudgetRef.value) {
+                            const bd = summaryBudgetByFolder.value;
+                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:bd.map(d=>d.folder), datasets:[{ label:'Investment', data:bd.map(d=>d.investment), backgroundColor:'#0047BB' },{ label:'Savings', data:bd.map(d=>d.savings), backgroundColor:'#10b981' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ ticks:{ font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                        }
+                        if (chartPhaseRef.value) {
+                            const pd = summaryProjectsByPhase.value;
+                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'bar', data:{ labels:Object.keys(pd), datasets:[{ label:'Projects', data:Object.values(pd), backgroundColor:'#0047BB', borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ stepSize:1, font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:40 } } } } });
+                        }
+                        if (chartOwnerRef.value) {
+                            const od = summaryProjectsByOwner.value;
+                            const labels = Object.keys(od);
+                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels, datasets:[{ label:'Projects', data:Object.values(od), backgroundColor:labels.map((_,i)=>ownerPalette[i%ownerPalette.length]), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                        }
+                        if (chartProgressRef.value) {
+                            const pp = summaryProgressPerProject.value;
+                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Progress', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                        }
+                    }
+                };
+
+                watch(currentView, (nv, ov) => {
+                    if (ov === 'summary') destroyCharts();
+                    if (nv === 'summary') nextTick(initCharts);
+                });
+
+                watch(filteredProjects, () => {
+                    if (currentView.value === 'summary') nextTick(initCharts);
                 });
 
                 // ─── GANTT ────────────────────────────────────────────
@@ -1003,8 +1227,11 @@
                 return {
                     collapsed, currentView, viewTitle, viewMode, searchQuery, viewerOpen, detailsOpen, editingType, editingObject, selectedProject, activeViewerStage, menuItems,
                     projects, templates, filteredProjects, filteredTemplates, dashShowArchived, dbShowArchived, stats, activeProjectsList, executiveSummary, iconOptions, config,
+                    procurementStats, summaryStatusData, summaryBudgetByFolder, summaryProjectsByPhase, summaryProjectsByOwner, summaryProgressPerProject, insights,
+                    selectedProjectObj, projectPhaseStatusData, projectPhaseProgress, projectTasksData, chartTitles,
+                    chartStatusRef, chartBudgetRef, chartPhaseRef, chartOwnerRef, chartProgressRef,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, filterFolder, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, filterProject, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
