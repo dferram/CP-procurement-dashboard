@@ -279,7 +279,7 @@
                         return;
                     }
 
-                    const payloadText = `­*Update in Project: ${editingObject.value.code || 'Draft'} - ${editingObject.value.title}*\n*Context:* ${context}\n*Message:* ${messageText}`;
+                    const payloadText = `*Update in Project: ${editingObject.value.code || 'Draft'} - ${editingObject.value.title}*\n*Context:* ${context}\n*Message:* ${messageText}`;
                     
                     gsRun('sendGoogleChatNotification', [payloadText], (res) => {
                         if(res.success) showToast("Sent to Google Chat!", "success");
@@ -653,7 +653,14 @@
 
                 // ─── PROJECT VIEWER & EDITOR ──────────────────────────
                 const getStatusColor = (s) => s === 'COMPLETED' ? 'bg-emerald-500' : (s === 'IN PROGRESS' ? 'bg-blue-500' : 'bg-slate-300');
-                const getStatusCycleColor = (s) => s === 'ON TRACK' ? 'bg-emerald-100 text-emerald-700' : (s === 'DELAYED' ? 'bg-amber-100 text-amber-700' : (s === 'AT RISK' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'));
+                const getStatusCycleColor = (s) => {
+                    if (s === 'ON TRACK')  return 'bg-emerald-100 text-emerald-700';
+                    if (s === 'DELAYED')   return 'bg-amber-100 text-amber-700';
+                    if (s === 'AT RISK')   return 'bg-orange-100 text-orange-700';
+                    if (s === 'ON HOLD')   return 'bg-slate-100 text-slate-500';
+                    if (s === 'CANCELLED') return 'bg-red-50 text-red-400 line-through';
+                    return 'bg-slate-100 text-slate-400';
+                };
 
                 const viewProjectDetails = (p) => {
                     selectedProject.value = JSON.parse(JSON.stringify(p));
