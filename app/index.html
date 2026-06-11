@@ -205,6 +205,35 @@
             border-radius: 6px 6px 0 0;
         }
 
+        /* ── Gantt Chart Grid ── */
+        .gantt-container {
+            display: grid;
+            grid-template-columns: minmax(160px, 200px) 1fr;
+            align-items: stretch;
+        }
+
+        /* ── Prevent flex child overflow in main layout ── */
+        main { min-width: 0; }
+
+        /* ── Laptop / Small Desktop  (1024 – 1366 px) ── */
+        @media (min-width: 1024px) and (max-width: 1366px) {
+            .search-container              { width: 148px; }
+            .search-container:focus-within { width: 210px; }
+            /* Tighten header horizontal padding */
+            .cp-header > div { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+        }
+
+        /* ── Mid-range Desktop  (1367 – 1440 px) ── */
+        @media (min-width: 1367px) and (max-width: 1440px) {
+            .search-container              { width: 175px; }
+            .search-container:focus-within { width: 260px; }
+        }
+
+        /* ── Ultrawide  (≥ 2560 px): wider gantt label column ── */
+        @media (min-width: 2560px) {
+            .gantt-container { grid-template-columns: minmax(220px, 280px) 1fr; }
+        }
+
         [v-cloak] { display: none; }
     </style>
 </head>
