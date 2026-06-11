@@ -309,7 +309,7 @@
                     <!-- ========================================== -->
                     <!-- KPI Panel (Dashboard Only) -->
                     <section v-if="currentView === 'dashboard' && !dashShowArchived" class="px-8 pt-6 pb-4 shrink-0">
-                        <div class="max-w-screen-2xl mx-auto grid grid-cols-2 xl:grid-cols-4 gap-4">
+                        <div class="max-w-screen-2xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4">
                             <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
                                 <div class="w-12 h-12 cp-kpi-icon flex items-center justify-center text-xl shrink-0"><i class="fas fa-layer-group"></i></div>
                                 <div>
@@ -437,7 +437,7 @@
                                     </div>
                                 </div>
                                 <div v-show="folderState[folderName]" class="bg-white border-x border-b rounded-b-panel shadow-sm min-h-[48px] overflow-x-auto" style="border-color:var(--border)">
-                                    <table v-if="folderProjects.length > 0" class="w-full text-left border-collapse min-w-[1000px]">
+                                    <table v-if="folderProjects.length > 0" class="w-full text-left border-collapse min-w-[860px]">
                                         <thead>
                                             <tr class="border-b" style="border-color:var(--border)">
                                                 <th class="pb-3 pt-4 px-4 text-[0.6rem] font-black uppercase tracking-widest w-24" style="color:var(--text-muted)">Code</th>
@@ -588,7 +588,7 @@
 
                 <div id="project-details-export" class="flex-1 flex overflow-hidden">
                     <template v-if="viewMode === 'workflow'">
-                        <div class="w-[300px] border-r border-slate-100 flex flex-col bg-slate-50/30 shrink-0">
+                        <div class="w-[240px] xl:w-[300px] border-r border-slate-100 flex flex-col bg-slate-50/30 shrink-0">
                             <div class="p-8 overflow-y-auto flex-1 custom-scrollbar">
                                 <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Roadmap</p>
                                 <div class="space-y-4">
@@ -1077,7 +1077,7 @@
 
                         <div class="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
                             <!-- Left: Phase List (Draggable) -->
-                            <div class="w-full md:w-80 border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+                            <div class="w-full md:w-64 xl:w-80 border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
                                 <div class="p-4" ref="phasesSortableRef">
                                     <div v-for="(stage, idx) in editingObject.stages" :key="stage._localId" 
                                          class="group/phase mb-3 bg-white border border-slate-200 rounded-panel shadow-sm cursor-pointer transition-all relative overflow-hidden flex flex-col"
