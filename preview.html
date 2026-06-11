@@ -1629,7 +1629,296 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         showToast('Error loading data: ' + err.message, 'error');
                         isRefreshing.value = false;
                     });
-                    if (typeof google === 'undefined' || !google.script) setTimeout(() => isRefreshing.value = false, 800);
+                    if (typeof google === 'undefined' || !google.script) setTimeout(() => {
+                        // ── PREVIEW MOCK DATA ────────────────────────────────────────────────
+                        projects.value = [
+                            {
+                                id: 1001, title: 'Total Care Toothpaste Refresh', code: 'PRJ-2401',
+                                folder: 'Innovation Hub', category: 'Packaging Redesign',
+                                detail: 'Full refresh of the Total Care toothpaste packaging line, including new matte finish, updated ingredient callouts, and eco-friendly material migration.',
+                                reason: 'Consumer research shows preference for premium matte finishes and sustainability messaging. Competitive landscape demands an updated visual identity.',
+                                generalComments: 'Agency briefing completed. Awaiting final artwork from Design Studio MX.',
+                                icon: 'fa-tooth', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: 250, unit: 'k', calculated: 250000 },
+                                projectOwner: 'Maria Garcia', cycleStatus: 'ON TRACK', archived: false, createdAt: '2024-01-15',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'COMPLETED', icon: 'fa-clipboard-list', assignee: 'Maria Garcia', startDate: '2024-01-15', endDate: '2024-02-02',
+                                      tasks: [
+                                        { desc: 'Prepare project brief and objectives', done: true, alert: false, alertComment: '', comment: 'Brief approved by all stakeholders.', assignee: 'Maria Garcia', startDate: '2024-01-15', endDate: '2024-01-22' },
+                                        { desc: 'Competitive landscape analysis', done: true, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2024-01-18', endDate: '2024-01-28' },
+                                        { desc: 'Define packaging specs and materials', done: true, alert: false, alertComment: '', comment: 'Eco-friendly substrate selected.', assignee: 'Maria Garcia', startDate: '2024-01-25', endDate: '2024-02-02' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'IN PROGRESS', icon: 'fa-pencil-ruler', assignee: 'Sarah Johnson', startDate: '2024-02-05', endDate: '2024-03-15',
+                                      tasks: [
+                                        { desc: 'Submit agency briefing package', done: true, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-02-05', endDate: '2024-02-12' },
+                                        { desc: 'First artwork round review', done: true, alert: false, alertComment: '', comment: 'Minor changes requested on font sizing.', assignee: 'Sarah Johnson', startDate: '2024-02-15', endDate: '2024-02-26' },
+                                        { desc: 'Final artwork approval and dieline', done: false, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-03-01', endDate: '2024-03-15' }
+                                      ]},
+                                    { title: 'TESTING & VALIDATION', status: 'PENDING', icon: 'fa-vial', assignee: 'David Kim', startDate: '2024-03-18', endDate: '2024-04-10',
+                                      tasks: [
+                                        { desc: 'Print trial at selected supplier', done: false, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-03-18', endDate: '2024-03-28' },
+                                        { desc: 'Consumer blind test — new vs old pack', done: false, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-03-29', endDate: '2024-04-07' }
+                                      ]},
+                                    { title: 'PRODUCTION', status: 'PENDING', icon: 'fa-industry', assignee: 'Carlos Mendez', startDate: '2024-04-14', endDate: '2024-05-30',
+                                      tasks: [
+                                        { desc: 'First production run & QC sign-off', done: false, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2024-04-14', endDate: '2024-05-10' },
+                                        { desc: 'Logistics & distribution coordination', done: false, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2024-05-12', endDate: '2024-05-30' }
+                                      ]}
+                                ]
+                            },
+                            {
+                                id: 1002, title: 'Max White Ultimate Relaunch', code: 'PRJ-2402',
+                                folder: 'Core Business', category: 'Brand Relaunch',
+                                detail: 'Full relaunch of Max White Ultimate toothpaste, including refreshed packaging, updated formula claims, and new POS materials.',
+                                reason: 'Market share declined 3.2% YoY. Premium white segment is growing. Need to regain leadership positioning.',
+                                generalComments: 'Testing is running behind schedule — supplier quality issue. Escalated to procurement.',
+                                icon: 'fa-spray-can', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: 180, unit: 'k', calculated: 180000 },
+                                projectOwner: 'Carlos Mendez', cycleStatus: 'DELAYED', archived: false, createdAt: '2024-01-08',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'COMPLETED', icon: 'fa-clipboard-list', assignee: 'Carlos Mendez', startDate: '2024-01-08', endDate: '2024-01-26',
+                                      tasks: [
+                                        { desc: 'Relaunch strategy & scope definition', done: true, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2024-01-08', endDate: '2024-01-15' },
+                                        { desc: 'Align with Brand and R&D teams', done: true, alert: false, alertComment: '', comment: 'Aligned on claims and ingredient update.', assignee: 'Carlos Mendez', startDate: '2024-01-16', endDate: '2024-01-26' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'COMPLETED', icon: 'fa-pencil-ruler', assignee: 'Sarah Johnson', startDate: '2024-01-29', endDate: '2024-03-01',
+                                      tasks: [
+                                        { desc: 'New packaging concept exploration (3 options)', done: true, alert: false, alertComment: '', comment: 'Option 2 selected by brand team.', assignee: 'Sarah Johnson', startDate: '2024-01-29', endDate: '2024-02-16' },
+                                        { desc: 'Regulatory copy review and approval', done: true, alert: false, alertComment: '', comment: '', assignee: 'Ana Rodriguez', startDate: '2024-02-19', endDate: '2024-03-01' }
+                                      ]},
+                                    { title: 'TESTING & VALIDATION', status: 'IN PROGRESS', icon: 'fa-vial', assignee: 'David Kim', startDate: '2024-03-04', endDate: '2024-04-19',
+                                      tasks: [
+                                        { desc: 'Print pre-production trials', done: true, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-03-04', endDate: '2024-03-15' },
+                                        { desc: 'Stability testing on new laminate structure', done: false, alert: true, alertComment: 'Supplier reported delamination defect. New batch ordered — 2-week delay expected.', comment: '', assignee: 'David Kim', startDate: '2024-03-18', endDate: '2024-04-05' },
+                                        { desc: 'Consumer preference panel', done: false, alert: false, alertComment: '', comment: '', assignee: 'Ana Rodriguez', startDate: '2024-04-08', endDate: '2024-04-19' }
+                                      ]},
+                                    { title: 'LAUNCH', status: 'PENDING', icon: 'fa-rocket', assignee: 'Carlos Mendez', startDate: '2024-04-22', endDate: '2024-05-31',
+                                      tasks: [
+                                        { desc: 'POS material production & distribution', done: false, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2024-04-22', endDate: '2024-05-10' },
+                                        { desc: 'Go-live: retail shelf switch', done: false, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2024-05-13', endDate: '2024-05-31' }
+                                      ]}
+                                ]
+                            },
+                            {
+                                id: 1003, title: 'Palmolive Naturals Coconut Milk SKU', code: 'PRJ-2403',
+                                folder: 'Innovation Hub', category: 'New Product Development',
+                                detail: 'Launch of a new Palmolive Naturals SKU featuring coconut milk formula. Includes full packaging development and regulatory clearance across LATAM markets.',
+                                reason: 'Coconut-based personal care growing 18% YoY in LATAM. Gap in current portfolio. First-mover opportunity.',
+                                generalComments: '',
+                                icon: 'fa-leaf', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: 1.2, unit: 'M', calculated: 1200000 },
+                                projectOwner: 'Sarah Johnson', cycleStatus: 'ON TRACK', archived: false, createdAt: '2024-02-01',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'IN PROGRESS', icon: 'fa-clipboard-list', assignee: 'Sarah Johnson', startDate: '2024-02-01', endDate: '2024-03-08',
+                                      tasks: [
+                                        { desc: 'Consumer research and insight review', done: true, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-02-01', endDate: '2024-02-14' },
+                                        { desc: 'Formula brief to R&D', done: false, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-02-15', endDate: '2024-02-28' },
+                                        { desc: 'Packaging brief and tech specs', done: false, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-03-01', endDate: '2024-03-08' }
+                                      ]},
+                                    { title: 'FORMULATION', status: 'PENDING', icon: 'fa-microscope', assignee: 'Ana Rodriguez', startDate: '2024-03-11', endDate: '2024-05-03', tasks: [] },
+                                    { title: 'DESIGN & ARTWORK', status: 'PENDING', icon: 'fa-pencil-ruler', assignee: 'Sarah Johnson', startDate: '2024-05-06', endDate: '2024-06-21', tasks: [] },
+                                    { title: 'REGULATORY APPROVAL', status: 'PENDING', icon: 'fa-check-double', assignee: 'Ana Rodriguez', startDate: '2024-06-24', endDate: '2024-08-09', tasks: [] },
+                                    { title: 'PRODUCTION & LAUNCH', status: 'PENDING', icon: 'fa-rocket', assignee: 'Carlos Mendez', startDate: '2024-08-12', endDate: '2024-10-04', tasks: [] }
+                                ]
+                            },
+                            {
+                                id: 1004, title: 'Speed Stick Sport Packaging Redesign', code: 'PRJ-2404',
+                                folder: 'Core Business', category: 'Packaging Redesign',
+                                detail: 'Revamp of Speed Stick Sport deodorant packaging to align with the new global brand platform. Requires secondary packaging and carton updates.',
+                                reason: 'Global brand standard enforcement. Current design is 4 years old and inconsistent with new identity guidelines.',
+                                generalComments: 'Design phase at risk due to agency bandwidth constraints. Escalated to VP Brand.',
+                                icon: 'fa-box', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: 95, unit: 'k', calculated: 95000 },
+                                projectOwner: 'Maria Garcia', cycleStatus: 'AT RISK', archived: false, createdAt: '2024-01-22',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'COMPLETED', icon: 'fa-clipboard-list', assignee: 'Maria Garcia', startDate: '2024-01-22', endDate: '2024-02-09',
+                                      tasks: [
+                                        { desc: 'Global brand guidelines alignment', done: true, alert: false, alertComment: '', comment: 'Received from Global HQ.', assignee: 'Maria Garcia', startDate: '2024-01-22', endDate: '2024-01-31' },
+                                        { desc: 'Agency kickoff meeting', done: true, alert: false, alertComment: '', comment: '', assignee: 'Maria Garcia', startDate: '2024-02-02', endDate: '2024-02-09' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'IN PROGRESS', icon: 'fa-pencil-ruler', assignee: 'Sarah Johnson', startDate: '2024-02-12', endDate: '2024-04-05',
+                                      tasks: [
+                                        { desc: 'Initial concept development (4 directions)', done: true, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-02-12', endDate: '2024-03-01' },
+                                        { desc: 'Brand team review and alignment', done: false, alert: true, alertComment: 'Agency has limited bandwidth — review meeting postponed twice. Critical path at risk.', comment: '', assignee: 'Sarah Johnson', startDate: '2024-03-04', endDate: '2024-03-22' },
+                                        { desc: 'Final artwork with all language variants', done: false, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-03-25', endDate: '2024-04-05' }
+                                      ]},
+                                    { title: 'PRODUCTION', status: 'PENDING', icon: 'fa-industry', assignee: 'David Kim', startDate: '2024-04-08', endDate: '2024-05-24', tasks: [] }
+                                ]
+                            },
+                            {
+                                id: 1005, title: 'Kids Strawberry Blast Pack Launch', code: 'PRJ-2405',
+                                folder: 'Innovation Hub', category: 'New Product Development',
+                                detail: 'New entry in the Colgate Kids range targeting 6–12 year olds with a strawberry blast flavor. Fun character-driven packaging with collectible design.',
+                                reason: 'Kids segment growing in emerging markets. Strawberry flavor gap identified in current Kids lineup.',
+                                generalComments: 'On track. Validation phase kicked off on schedule.',
+                                icon: 'fa-tooth', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: -120, unit: 'k', calculated: -120000 },
+                                projectOwner: 'Carlos Mendez', cycleStatus: 'ON TRACK', archived: false, createdAt: '2023-11-10',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'COMPLETED', icon: 'fa-clipboard-list', assignee: 'Carlos Mendez', startDate: '2023-11-10', endDate: '2023-11-28',
+                                      tasks: [
+                                        { desc: 'Consumer segmentation and insight brief', done: true, alert: false, alertComment: '', comment: '', assignee: 'Carlos Mendez', startDate: '2023-11-10', endDate: '2023-11-20' },
+                                        { desc: 'Regulatory classification check', done: true, alert: false, alertComment: '', comment: '', assignee: 'Ana Rodriguez', startDate: '2023-11-21', endDate: '2023-11-28' }
+                                      ]},
+                                    { title: 'FORMULATION', status: 'COMPLETED', icon: 'fa-microscope', assignee: 'Ana Rodriguez', startDate: '2023-12-01', endDate: '2024-01-19',
+                                      tasks: [
+                                        { desc: 'Flavor development with R&D', done: true, alert: false, alertComment: '', comment: 'Three prototypes tested. Final selected.', assignee: 'Ana Rodriguez', startDate: '2023-12-01', endDate: '2023-12-22' },
+                                        { desc: 'Safety and stability testing', done: true, alert: false, alertComment: '', comment: '', assignee: 'Ana Rodriguez', startDate: '2024-01-02', endDate: '2024-01-19' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'COMPLETED', icon: 'fa-pencil-ruler', assignee: 'Sarah Johnson', startDate: '2024-01-22', endDate: '2024-02-23',
+                                      tasks: [
+                                        { desc: 'Character design and illustration', done: true, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-01-22', endDate: '2024-02-09' },
+                                        { desc: 'Final dieline and print-ready files', done: true, alert: false, alertComment: '', comment: '', assignee: 'Sarah Johnson', startDate: '2024-02-12', endDate: '2024-02-23' }
+                                      ]},
+                                    { title: 'TESTING & VALIDATION', status: 'IN PROGRESS', icon: 'fa-vial', assignee: 'David Kim', startDate: '2024-02-26', endDate: '2024-03-29',
+                                      tasks: [
+                                        { desc: 'Print production trials', done: true, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-02-26', endDate: '2024-03-08' },
+                                        { desc: 'Focus group — kids & parents panel', done: false, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-03-11', endDate: '2024-03-22' },
+                                        { desc: 'Final QC and approval sign-off', done: false, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-03-25', endDate: '2024-03-29' }
+                                      ]},
+                                    { title: 'PRODUCTION & LAUNCH', status: 'PENDING', icon: 'fa-rocket', assignee: 'Carlos Mendez', startDate: '2024-04-01', endDate: '2024-05-17', tasks: [] }
+                                ]
+                            },
+                            {
+                                id: 1006, title: 'Ajax Eco-Refill Pouch', code: 'PRJ-2406',
+                                folder: 'Core Business', category: 'Sustainability Initiative',
+                                detail: 'Development of an eco-refill pouch format for Ajax Multi-Surface Cleaner to reduce plastic footprint by 70% vs. the current bottle format.',
+                                reason: 'Sustainability commitment. Retailer pressure to reduce plastic. Strong consumer pull for refill formats in Europe and LATAM.',
+                                generalComments: '',
+                                icon: 'fa-pump-soap', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: 75, unit: 'k', calculated: 75000 },
+                                projectOwner: 'David Kim', cycleStatus: 'ON TRACK', archived: false, createdAt: '2024-02-12',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'IN PROGRESS', icon: 'fa-clipboard-list', assignee: 'David Kim', startDate: '2024-02-12', endDate: '2024-03-08',
+                                      tasks: [
+                                        { desc: 'Define sustainability targets and specs', done: true, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-02-12', endDate: '2024-02-23' },
+                                        { desc: 'Supplier landscape — flexible packaging', done: false, alert: false, alertComment: '', comment: '', assignee: 'David Kim', startDate: '2024-02-26', endDate: '2024-03-08' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'PENDING', icon: 'fa-pencil-ruler', assignee: 'Sarah Johnson', startDate: '2024-03-11', endDate: '2024-04-19', tasks: [] },
+                                    { title: 'TESTING & VALIDATION', status: 'PENDING', icon: 'fa-vial', assignee: 'Ana Rodriguez', startDate: '2024-04-22', endDate: '2024-05-24', tasks: [] }
+                                ]
+                            },
+                            {
+                                id: 1007, title: 'Sensitive Pro Relief Repack', code: 'PRJ-2407',
+                                folder: 'Uncategorized', category: 'Packaging Redesign',
+                                detail: 'Repackaging of Sensitive Pro Relief to align with the new premium tier identity.',
+                                reason: 'Brand portfolio rationalization. Scope change pending global decision.',
+                                generalComments: 'Project cancelled pending global portfolio review Q2 2024.',
+                                icon: 'fa-tooth', driveRootUrl: '', driveFolderId: '', chatWebhook: '',
+                                finances: { amount: 0, unit: 'none', calculated: 0 },
+                                projectOwner: 'Ana Rodriguez', cycleStatus: 'CANCELLED', archived: false, createdAt: '2024-01-05',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'COMPLETED', icon: 'fa-clipboard-list', assignee: 'Ana Rodriguez', startDate: '2024-01-05', endDate: '2024-01-19',
+                                      tasks: [
+                                        { desc: 'Initial scope and budget alignment', done: true, alert: false, alertComment: '', comment: '', assignee: 'Ana Rodriguez', startDate: '2024-01-05', endDate: '2024-01-12' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'PENDING', icon: 'fa-pencil-ruler', assignee: '', startDate: '', endDate: '', tasks: [] }
+                                ]
+                            }
+                        ];
+                        templates.value = [
+                            {
+                                id: 2001, name: 'Standard Product Launch',
+                                description: 'Full end-to-end launch process covering briefing, design, validation, production, and go-to-market.',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'PENDING', icon: 'fa-clipboard-list', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Project scope and objectives', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Stakeholder alignment meeting', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Budget approval', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'PENDING', icon: 'fa-pencil-ruler', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Agency briefing and kickoff', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Concept rounds (x2)', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Final artwork approval', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'TESTING & VALIDATION', status: 'PENDING', icon: 'fa-vial', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Print trials', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Consumer validation panel', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'PRODUCTION', status: 'PENDING', icon: 'fa-industry', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'First production run', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'QC sign-off', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'LAUNCH', status: 'PENDING', icon: 'fa-rocket', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Retail distribution coordination', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Go-live confirmation', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]}
+                                ]
+                            },
+                            {
+                                id: 2002, name: 'Packaging Redesign',
+                                description: 'Streamlined process for redesigning existing product packaging, from strategic brief to production handoff.',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'PENDING', icon: 'fa-clipboard-list', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Current packaging audit and pain points', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Brand guidelines alignment', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'PENDING', icon: 'fa-pencil-ruler', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Concept exploration (3 directions)', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Stakeholder review and selection', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Language variants and regulatory copy', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Final dieline and print-ready files', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'VALIDATION', status: 'PENDING', icon: 'fa-check-double', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Print pre-production trial', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Regulatory sign-off', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'PRODUCTION HANDOFF', status: 'PENDING', icon: 'fa-industry', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Supplier artwork upload and confirmation', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]}
+                                ]
+                            },
+                            {
+                                id: 2003, name: 'New Formula Development',
+                                description: 'Comprehensive template for new product formulation projects, covering R&D, regulatory, and launch phases.',
+                                stages: [
+                                    { title: 'BRIEFING', status: 'PENDING', icon: 'fa-clipboard-list', assignee: '', startDate: '', endDate: '', tasks: [] },
+                                    { title: 'FORMULATION', status: 'PENDING', icon: 'fa-microscope', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Formula prototype development', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Internal sensory evaluation', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'STABILITY TESTING', status: 'PENDING', icon: 'fa-vial', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'Accelerated stability protocol (45°C / 6 weeks)', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'REGULATORY APPROVAL', status: 'PENDING', icon: 'fa-check-double', assignee: '', startDate: '', endDate: '',
+                                      tasks: [
+                                        { desc: 'INCI declaration and claims review', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' },
+                                        { desc: 'Market-specific regulatory filing', done: false, alert: false, alertComment: '', comment: '', assignee: '', startDate: '', endDate: '' }
+                                      ]},
+                                    { title: 'DESIGN & ARTWORK', status: 'PENDING', icon: 'fa-pencil-ruler', assignee: '', startDate: '', endDate: '', tasks: [] },
+                                    { title: 'PRODUCTION & LAUNCH', status: 'PENDING', icon: 'fa-rocket', assignee: '', startDate: '', endDate: '', tasks: [] }
+                                ]
+                            }
+                        ];
+                        customFolders.value = ['Uncategorized', 'Innovation Hub', 'Core Business'];
+                        folderState.value = { 'Uncategorized': true, 'Innovation Hub': true, 'Core Business': true };
+                        config.value = {
+                            cpTeam: ['Maria Garcia', 'Carlos Mendez', 'Sarah Johnson', 'David Kim', 'Ana Rodriguez'],
+                            externalTeam: ['PackagingCo Inc.', 'Design Studio MX', 'Quality Testing Labs', 'Logistics Partners Intl.'],
+                            suggestions: [
+                                { title: 'BRIEFING', icon: 'fa-clipboard-list' },
+                                { title: 'DESIGN & ARTWORK', icon: 'fa-pencil-ruler' },
+                                { title: 'FORMULATION', icon: 'fa-microscope' },
+                                { title: 'TESTING & VALIDATION', icon: 'fa-vial' },
+                                { title: 'REGULATORY APPROVAL', icon: 'fa-check-double' },
+                                { title: 'PRODUCTION', icon: 'fa-industry' },
+                                { title: 'LOGISTICS', icon: 'fa-truck' },
+                                { title: 'LAUNCH', icon: 'fa-rocket' }
+                            ]
+                        };
+                        isRefreshing.value = false;
+                    }, 300);
                 };
 
                 onMounted(() => fetchData());
