@@ -1,4 +1,4 @@
-# Colgate-Palmolive: Project Management and Data Visualization Dashboard
+# Colgate-Palmolive — Procurement PMO
 
 ![Google Sheets](https://img.shields.io/badge/Google%20Sheets-34A853?style=for-the-badge&logo=google-sheets&logoColor=white)
 ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?style=for-the-badge&logo=google-drive&logoColor=white)
@@ -7,47 +7,83 @@
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 
-> **This repository and its code are part of _Colgate-Palmolive_ Procurement Trainee team. Use of this material with anyone outside the _Procurement Trainee_ team or unauthorized stakeholders is strictly prohibited.**
+> **This repository and its code are part of the Colgate-Palmolive Procurement Trainee team. Use of this material with anyone outside the Procurement Trainee team or unauthorized stakeholders is strictly prohibited.**
 
 ---
 
-## Project Description
-This interactive dashboard streamlines project tracking and data visualization for the Procurement team. It eliminates the need for manual spreadsheet updates by pulling directly from a structured database. The system allows users to manage multiple project phases, assign tasks dynamically, and trigger automated alerts.
+## Description
 
-## Tech Stack
-* **Frontend:** Vue 3, HTML5, CSS3, JavaScript (hosted on GitHub)
-* **Database & Data Structure:** Google Sheets (optimized to handle high project volumes and prevent system crashes)
-* **Integrations:** Google Webhooks & Google Drive API
+Internal project management tool for the Colgate-Palmolive Procurement team. The application centralizes the tracking of packaging projects, allows managing phases and tasks, visualizing portfolio progress, and connects with Google Drive and Google Chat for notifications and file storage.
+
+It runs on Google Apps Script as a web app, using Google Sheets as the database with no external servers.
 
 ---
 
-## Key Features
+## Tech stack
 
-* **Centralized Dashboard:** A single source of truth to monitor overall project progress at a glance.
-* **Phase & Task Management:** Create multiple phases per project, each with individual tasks and statuses. *(Note: Phase structures are for context; details must be aligned and co-developed with Rafael Álvarez).*
-* **Role-Based Access:** Add and categorize multiple stakeholders as:
-  * Owners (Encargados)
-  * Members
-  * External Collaborators
-* **Automated Notifications:** Powered by Google Webhooks—whenever a task is assigned, the assignee automatically receives a notification message.
-* **File Management:** Seamless file storage integration directly into Google Drive.
-* **Advanced Search & Templates:** Built-in search filters and reusable project templates for rapid deployment.
-* **FTG Module:** Dedicated tracking for savings projects (specific details to be reviewed with Rafa).
+**Frontend**
+- Vue 3 (Composition API, CDN)
+- TailwindCSS (CDN)
+- FontAwesome 6
+- Chart.js 4.4
+- SortableJS
+- html2pdf / html2canvas
 
-**Out of Scope:** Date/Gantt diagrams and PDF exporting are explicitly **not** required for this project.
+**Backend**
+- Google Apps Script
+- Google Sheets (database)
+- Google Drive API
+- Google Chat (webhooks)
 
 ---
 
-## Dynamic Statuses & Alerts
+## Key features
 
-The active project status updates dynamically based on task progression, while still allowing the Project Owner the flexibility to override it manually. 
+**Project management**
+- Create, edit, archive and delete projects
+- Assign project owner, internal members and external collaborators
+- Organize by folders (categories)
+- Financial tracking (investment / savings)
 
-Alert logic is dynamically driven based on parameters defined by Rafael Álvarez:
-* 🔴 **Delayed:** The phase has passed its scheduled delivery date.
-* 🟢 **On Track:** Tasks are completed and moving to the next phase within the original date range.
-* 🟡 **At Risk:** *[Definition pending further review with Rafa].*
-* ⏸️ **On Hold:** A manual status applied when a project is temporarily paused.
+**Phases and tasks**
+- Each project has N phases with start and end dates
+- Each phase contains tasks with completed / alert status
+- Phase status is calculated automatically based on task progress
+- The project owner can manually override the status
 
+**Views**
+- Dashboard: project cards grouped by folder
+- Database: tabular project list with filters
+- Executive Summary: KPIs, insights and charts for the portfolio or a single project
+- Gantt: phase timeline per project
+- Configuration: teams, phase templates, Google Chat webhook
+
+**Integrations**
+- Google Drive: per-project file explorer with upload and download
+- Google Chat: automatic notifications when changes are saved
+- PDF export of the dashboard
+
+---
+
+## Lifecycle statuses
+
+| Status | Meaning |
+|---|---|
+| ON TRACK | Normal progress, within schedule |
+| AT RISK | At risk of missing deadlines |
+| DELAYED | Past the deadline |
+| ON HOLD | Manually paused |
+| CANCELLED | Cancelled |
+
+---
+
+## Additional documentation
+
+- [System architecture](docs/architecture.md)
+- [Frontend — structure and components](docs/frontend.md)
+- [Backend — services and middleware](docs/backend.md)
+- [Data model](docs/data-model.md)
+- [Deployment guide for Google Apps Script](docs/deploy.md)
 
 ---
 

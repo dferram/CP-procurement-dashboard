@@ -129,4 +129,4 @@ Local project/
 - `setupDatabase` only needs to be run once per spreadsheet. Do not run it repeatedly in production as it will attempt to recreate sheets that already exist.
 - The Google Drive integration requires the Drive folder ID to be set in `Configuration` before creating projects, otherwise folders will not be created automatically.
 - The Google Chat webhook is optional. If not set, chat notifications will simply not send — the rest of the app functions normally.
-- All CDN dependencies (Vue, Tailwind, Chart.js, etc.) are loaded from the internet at runtime, so users need an active internet connection.
+- All CDN dependencies (Vue, Tailwind, Chart.js, etc.) are loaded from the internet at runtime, so users need an active internet connect
