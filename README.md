@@ -1,3 +1,6 @@
+
+<img src="public/colpal.png" width="80" align="left" style=" margin-bottom: 8px"/>
+
 # Colgate-Palmolive — Procurement PMO
 
 ![Google Sheets](https://img.shields.io/badge/Google%20Sheets-34A853?style=for-the-badge&logo=google-sheets&logoColor=white)
