@@ -1,10 +1,10 @@
-﻿    <div id="app" v-cloak>
+    <div id="app" v-cloak>
         <div class="flex h-screen overflow-hidden">
             <!-- Main Sidebar Navigation -->
             <aside :class="['cp-sidebar transition-all duration-300 flex flex-col z-20 shrink-0', collapsed ? 'w-[72px]' : 'w-64']">
                 <!-- Logo area -->
                 <div class="flex flex-col items-center justify-center shrink-0 py-6 px-4">
-                    <img src="<?= getLogoWhite() ?>"
+                    <img :src="logoWhite"
                          :class="[collapsed ? 'w-10 h-10' : 'w-20 h-20']"
                          class="object-contain drop-shadow-lg transition-all duration-300"
                          alt="Colgate-Palmolive" />
@@ -34,7 +34,7 @@
 
                 <!-- Initial Loading Overlay: shown only on first fetch before any data arrives -->
                 <div v-if="isRefreshing && projects.length === 0" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-5">
-                    <img src="<?= getLogoBlue() ?>" class="w-20 h-20 object-contain animate-pulse" alt="Loading" />
+                    <img :src="logoBlue" class="w-20 h-20 object-contain animate-pulse" alt="Loading" />
                     <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-muted)">Loading data...</p>
                 </div>
 

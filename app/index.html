@@ -264,6 +264,11 @@
     </style>
 </head>
 <body>
+<script>
+/* Logo data URIs — evaluated by GAS when index.html is rendered as a template */
+var LOGO_WHITE_URL = '<?= getLogoWhite() ?>';
+var LOGO_BLUE_URL  = '<?= getLogoBlue()  ?>';
+</script>
 <?!= include('app-template') ?>
 <?!= include('app-script') ?>
 </body>

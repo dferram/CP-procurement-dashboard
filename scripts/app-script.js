@@ -1,4 +1,4 @@
-﻿const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
         createApp({
             setup() {
                 // ─── UI STATE ────────────────────────────────────────────
@@ -15,6 +15,9 @@
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
                 const currentUserEmail = ref('');
+                // ─── BRAND LOGOS (injected by index.html via GAS scriptlet) ──
+                const logoWhite = ref(typeof LOGO_WHITE_URL !== 'undefined' ? LOGO_WHITE_URL : '');
+                const logoBlue  = ref(typeof LOGO_BLUE_URL  !== 'undefined' ? LOGO_BLUE_URL  : '');
 
                 // ─── EDITOR STATE ─────────────────────────────────────────
                 const activeViewerStage = ref(0);   // which phase tab is selected in the editor
@@ -1237,7 +1240,8 @@
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
-                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride
+                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride,
+                    logoWhite, logoBlue
                 };
             }
         }).mount('#app');
