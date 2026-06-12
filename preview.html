@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -622,7 +622,8 @@
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             <span class="text-[0.65rem] font-bold uppercase tracking-wider" style="color:var(--text-muted)">{{ p.code }}</span>
-                                            <span :class="['text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase', p.archived ? 'bg-slate-100 text-slate-400' : getStatusCycleColor(p.cycleStatus)]">{{ p.cycleStatus }}</span>
+                                            <span class="text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase"
+                                                  :style="p.archived ? 'background:#F1F5F9;color:#94A3B8;' : getStatusCycleColor(p.cycleStatus)">{{ p.cycleStatus }}</span>
                                             <span class="text-[0.65rem] font-semibold px-2 py-0.5 rounded border" style="background:var(--cp-blue-light);color:var(--cp-blue);border-color:#c8d8f5">{{ p.category || 'Uncategorized' }}</span>
                                             <span class="text-[0.65rem] font-semibold" style="color:var(--text-muted)"><i class="fas fa-folder mr-1 opacity-60"></i>{{ p.folder || 'Uncategorized' }}</span>
                                         </div>
@@ -729,13 +730,14 @@
                                                 </td>
                                                 <td class="py-3.5 px-4 text-xs font-semibold" style="color:var(--text-primary)">{{ p.projectOwner || '-' }}</td>
                                                 <td class="py-3.5 px-4">
-                                                    <span v-if="p.finances && p.finances.calculated !== 0" :class="['text-[0.65rem] font-bold px-2 py-1 rounded whitespace-nowrap', p.finances.calculated < 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700']">
-                                                        {{ formatFinance(p.finances.calculated) }}
-                                                    </span>
+                                                    <span v-if="p.finances && p.finances.calculated !== 0"
+                                                          class="text-[0.65rem] font-bold px-2 py-1 rounded whitespace-nowrap"
+                                                          :style="p.finances.calculated < 0 ? 'background:#D1FAE5;color:#065F46;' : 'background:#FFF7ED;color:#C2410C;'">{{ formatFinance(p.finances.calculated) }}</span>
                                                     <span v-else class="text-[0.7rem]" style="color:var(--border)">—</span>
                                                 </td>
                                                 <td class="py-3.5 px-4">
-                                                    <span :class="['text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase whitespace-nowrap', p.archived ? 'bg-slate-100 text-slate-400' : getStatusCycleColor(p.cycleStatus)]">
+                                                    <span class="text-[0.65rem] px-2 py-0.5 rounded font-bold uppercase whitespace-nowrap"
+                                                          :style="p.archived ? 'background:#F1F5F9;color:#94A3B8;' : getStatusCycleColor(p.cycleStatus)">
                                                         {{ p.archived ? 'ARCHIVED' : p.cycleStatus }}
                                                     </span>
                                                 </td>
@@ -898,7 +900,7 @@
                                             <div class="min-w-0">
                                                 <p class="text-[0.68rem] font-black text-slate-800 truncate uppercase leading-tight" :title="proj.title">{{ proj.title }}</p>
                                                 <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                                    <span :class="['text-[0.52rem] px-1.5 py-0.5 rounded font-bold uppercase', getStatusCycleColor(proj.cycleStatus)]">{{ proj.cycleStatus }}</span>
+                                                    <span class="text-[0.52rem] px-1.5 py-0.5 rounded font-bold uppercase" :style="getStatusCycleColor(proj.cycleStatus)">{{ proj.cycleStatus }}</span>
                                                     <span class="text-[0.55rem] text-slate-400 font-semibold">{{ proj.category }}</span>
                                                     <span class="text-[0.52rem] text-slate-400">· {{ proj.projectOwner || 'No owner' }}</span>
                                                 </div>
@@ -1139,7 +1141,7 @@
                                         <div class="bg-blue-50/50 px-5 py-2.5 rounded-panel border border-blue-100 text-sm font-bold text-slate-700 flex items-center gap-3">
                                             <i class="fas fa-calendar-check text-blue-500"></i>
                                             <span>{{ formatDate(selectedProject.stages[activeViewerStage].startDate) }}</span>
-                                            <span class="text-blue-300 mx-2">ÔÇö</span>
+                                            <span class="text-blue-300 mx-2">&mdash;</span>
                                             <span>{{ formatDate(selectedProject.stages[activeViewerStage].endDate) }}</span>
                                         </div>
                                     </div>
@@ -1182,7 +1184,7 @@
                         </div>
                     </template>
 
-                    <template v-else>
+                    <template v-if="viewMode === 'gantt' && selectedProject && selectedProject.stages">
                         <!-- Dynamic Gantt Chart View -->
                         <div class="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
                             <div class="p-5 border-b border-slate-200 flex justify-end gap-3 bg-white">
@@ -1798,6 +1800,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
                 const currentUserEmail = ref('');
+                // ─── BRAND LOGOS (preview: blank placeholders) ──
+                const logoWhite = ref('');
+                const logoBlue  = ref('');
 
                 // ─── EDITOR STATE ─────────────────────────────────────────
                 const activeViewerStage = ref(0);   // which phase tab is selected in the editor
@@ -2831,7 +2836,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     destroyCharts();
                     if (typeof Chart === 'undefined') return;
                     const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
-                    const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETE':'#0047BB','DONE':'#0047BB','STOPPED':'#6b7280' };
+                    const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETED':'#10b981','COMPLETE':'#10b981','IN PROGRESS':'#3b82f6','PENDING':'#8b5cf6','DONE':'#0047BB','STOPPED':'#ef4444' };
                     if (filterProject.value !== 'ALL') {
                         if (chartStatusRef.value) {
                             const psd = projectPhaseStatusData.value;
@@ -2843,7 +2848,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         }
                         if (chartPhaseRef.value) {
                             const td = projectTasksData.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#94a3b8','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#3b82f6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
                         }
                         if (chartOwnerRef.value) {
                             const pp = projectPhaseProgress.value;
@@ -2852,7 +2857,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         if (chartProgressRef.value) {
                             const p = selectedProjectObj.value;
                             const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
-                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#94a3b8' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
+                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#3b82f6' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
                         }
                     } else {
                         if (chartStatusRef.value) {
@@ -2946,7 +2951,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             curr.setMonth(curr.getMonth() + 1);
                         }
                     }
-                    return cols.length > 0 ? cols : ['Timeline'];
+                    const MAX_COLS = 120;
+                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
                 });
 
                 // Mirrors GanttService.calculateBarStyle — left% and width% relative to the date range.
@@ -3016,7 +3022,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     } else {
                         let c = new Date(start); while (c < end) { cols.push(c.toLocaleString('en-US', { month: 'short', year: '2-digit' })); c.setMonth(c.getMonth() + 1); }
                     }
-                    return cols.length > 0 ? cols : ['Timeline'];
+                    const MAX_COLS = 120;
+                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
                 });
 
                 const getGanttAllBarStyle = (item, range) => {
@@ -3043,12 +3050,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     return 'bg-slate-300';
                 };
                 const getStatusCycleColor = (s) => {
-                    if (s === 'ON TRACK')  return 'bg-emerald-100 text-emerald-700';
-                    if (s === 'DELAYED')   return 'bg-amber-100 text-amber-700';
-                    if (s === 'AT RISK')   return 'bg-orange-100 text-orange-700';
-                    if (s === 'ON HOLD')   return 'bg-slate-100 text-slate-500';
-                    if (s === 'CANCELLED') return 'bg-red-50 text-red-400 line-through';
-                    return 'bg-slate-100 text-slate-400';
+                    if (s === 'ON TRACK')  return 'background:#D1FAE5;color:#065F46;';
+                    if (s === 'DELAYED')   return 'background:#FEF3C7;color:#92400E;';
+                    if (s === 'AT RISK')   return 'background:#FFEDD5;color:#9A3412;';
+                    if (s === 'ON HOLD')   return 'background:#F1F5F9;color:#64748B;';
+                    if (s === 'CANCELLED') return 'background:#FEF2F2;color:#B91C1C;text-decoration:line-through;';
+                    return 'background:#F1F5F9;color:#94A3B8;';
                 };
 
                 const viewProjectDetails = (p) => {
@@ -3300,7 +3307,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
-                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride
+                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride,
+                    logoWhite, logoBlue
                 };
             }
         }).mount('#app');
