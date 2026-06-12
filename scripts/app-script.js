@@ -39,6 +39,10 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const driveDragActive = ref(false);
                 const driveFiles = ref([]);
                 const driveFolders = ref([]);
+                const driveFileInputRef = ref(null);
+                const activeDriveFolderId = computed(() =>
+                    viewerOpen.value ? editingObject.value?.driveFolderId : selectedProject.value?.driveFolderId
+                );
 
                 // ─── FILTER & SORT STATE ──────────────────────────────────
                 const filterStatus  = ref('ALL');
@@ -352,17 +356,25 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     if(newId && viewerOpen.value && editingType.value === 'project') fetchDriveContents(newId);
                 });
 
+                watch([viewMode, detailsOpen], ([newMode, isOpen]) => {
+                    if (newMode === 'files' && isOpen && selectedProject.value?.driveFolderId) {
+                        fetchDriveContents(selectedProject.value.driveFolderId);
+                    }
+                });
+
                 const createDriveSubFolder = async () => {
                     const name = await showPrompt("Enter subfolder name:");
                     if(!name || name.trim()==='') return;
+                    const fid = activeDriveFolderId.value;
                     isDriveLoading.value = true;
-                    gsRun('createDriveSubFolder', [editingObject.value.driveFolderId, name.trim()], () => fetchDriveContents(editingObject.value.driveFolderId));
+                    gsRun('createDriveSubFolder', [fid, name.trim()], () => fetchDriveContents(fid));
                 };
 
                 const deleteDriveItem = async (id, isFolder) => {
                     if(!await showConfirm(`Delete this ${isFolder ? 'folder' : 'file'}?`)) return;
+                    const fid = activeDriveFolderId.value;
                     isDriveLoading.value = true;
-                    gsRun('deleteDriveItem', [id, isFolder], () => fetchDriveContents(editingObject.value.driveFolderId));
+                    gsRun('deleteDriveItem', [id, isFolder], () => fetchDriveContents(fid));
                 };
 
                 // Only handles the first dropped file — multi-file drop is not supported.
@@ -377,7 +389,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     reader.onload = (event) => {
                         const base64 = event.target.result;
                         isDriveLoading.value = true;
-                        gsRun('uploadFileToDrive', [editingObject.value.driveFolderId, base64, file.name, file.type], () => fetchDriveContents(editingObject.value.driveFolderId));
+                        const fid = activeDriveFolderId.value;
+                        gsRun('uploadFileToDrive', [fid, base64, file.name, file.type], () => fetchDriveContents(fid));
                     };
                     reader.readAsDataURL(file);
                 };
@@ -825,7 +838,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 // Shared date parser — always UTC (T00:00:00Z) to match DateService._parseDate on the backend.
                 const ganttParseDate = (str) => {
                     const d = new Date(str + 'T00:00:00Z');
-                    return isNaN(d.getTime()) ? null : d;
+                    if (isNaN(d.getTime())) return null;
+                    const yr = d.getUTCFullYear();
+                    return (yr < 2000 || yr > 2100) ? null : d;
                 };
 
                 // Mirrors DateService.getProjectDateRange — extracts all stage+task dates,
@@ -879,7 +894,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             curr.setMonth(curr.getMonth() + 1);
                         }
                     }
-                    return cols.length > 0 ? cols : ['Timeline'];
+                    const MAX_COLS = 120;
+                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
                 });
 
                 // Mirrors GanttService.calculateBarStyle — left% and width% relative to the date range.
@@ -949,7 +965,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     } else {
                         let c = new Date(start); while (c < end) { cols.push(c.toLocaleString('en-US', { month: 'short', year: '2-digit' })); c.setMonth(c.getMonth() + 1); }
                     }
-                    return cols.length > 0 ? cols : ['Timeline'];
+                    const MAX_COLS = 120;
+                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
                 });
 
                 const getGanttAllBarStyle = (item, range) => {
@@ -976,12 +993,41 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     return 'bg-slate-300';
                 };
                 const getStatusCycleColor = (s) => {
-                    if (s === 'ON TRACK')  return 'bg-emerald-100 text-emerald-700';
-                    if (s === 'DELAYED')   return 'bg-amber-100 text-amber-700';
-                    if (s === 'AT RISK')   return 'bg-orange-100 text-orange-700';
-                    if (s === 'ON HOLD')   return 'bg-slate-100 text-slate-500';
-                    if (s === 'CANCELLED') return 'bg-red-50 text-red-400 line-through';
-                    return 'bg-slate-100 text-slate-400';
+                    if (s === 'ON TRACK')  return 'background:#D1FAE5;color:#065F46;';
+                    if (s === 'DELAYED')   return 'background:#FEF3C7;color:#92400E;';
+                    if (s === 'AT RISK')   return 'background:#FFEDD5;color:#9A3412;';
+                    if (s === 'ON HOLD')   return 'background:#F1F5F9;color:#64748B;';
+                    if (s === 'CANCELLED') return 'background:#FEF2F2;color:#B91C1C;text-decoration:line-through;';
+                    return 'background:#F1F5F9;color:#94A3B8;';
+                };
+
+                const quickSaveCycleStatus = (newStatus) => {
+                    selectedProject.value.cycleStatus = newStatus;
+                    silentSaveProject(selectedProject.value);
+                };
+
+                const toggleTaskAlert = (task) => {
+                    task.alert = !task.alert;
+                    if (!task.alert) task.alertComment = '';
+                    silentSaveProject(selectedProject.value);
+                };
+
+                const triggerDriveUpload = () => {
+                    if (driveFileInputRef.value) driveFileInputRef.value.click();
+                };
+
+                const handleFileInputUpload = (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+                    const fid = activeDriveFolderId.value;
+                    if (!fid) { showToast('No Drive folder linked to this project.', 'error'); return; }
+                    const reader = new FileReader();
+                    isDriveLoading.value = true;
+                    reader.onload = (ev) => {
+                        gsRun('uploadFileToDrive', [fid, ev.target.result, file.name, file.type], () => fetchDriveContents(fid));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
                 };
 
                 const viewProjectDetails = (p) => {
@@ -1241,6 +1287,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
                     currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride,
+                    quickSaveCycleStatus, toggleTaskAlert, triggerDriveUpload, handleFileInputUpload, driveFileInputRef,
                     logoWhite, logoBlue
                 };
             }
