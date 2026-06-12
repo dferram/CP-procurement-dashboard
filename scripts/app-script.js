@@ -878,24 +878,23 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const ganttGridColumns = computed(() => {
                     const { start, end, totalDays } = projectDateRange.value;
                     const cols = [];
-                    if (ganttScale.value === 'weekly') {
-                        let w = 1;
-                        for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
-                    } else if (ganttScale.value === 'yearly') {
+                    if (ganttScale.value === 'daily') {
                         let curr = new Date(start);
-                        while (curr.getFullYear() <= end.getFullYear()) {
-                            cols.push(curr.getFullYear().toString());
-                            curr.setFullYear(curr.getFullYear() + 1);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
+                            curr.setDate(curr.getDate() + 1);
                         }
+                    } else if (ganttScale.value === 'weekly') {
+                        let w = 1;
+                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
                     } else {
                         let curr = new Date(start);
-                        while (curr < end) {
+                        while (curr <= end && cols.length < 150) {
                             cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
                             curr.setMonth(curr.getMonth() + 1);
                         }
                     }
-                    const MAX_COLS = 120;
-                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
+                    return cols.length > 0 ? cols : ['Timeline'];
                 });
 
                 // Mirrors GanttService.calculateBarStyle — left% and width% relative to the date range.
@@ -958,15 +957,23 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const ganttAllGridColumns = computed(() => {
                     const { start, end, totalDays } = ganttAllDateRange.value;
                     const cols = [];
-                    if (ganttScale.value === 'weekly') {
-                        let w = 1; for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
-                    } else if (ganttScale.value === 'yearly') {
-                        let c = new Date(start); while (c.getFullYear() <= end.getFullYear()) { cols.push(c.getFullYear().toString()); c.setFullYear(c.getFullYear() + 1); }
+                    if (ganttScale.value === 'daily') {
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
+                            curr.setDate(curr.getDate() + 1);
+                        }
+                    } else if (ganttScale.value === 'weekly') {
+                        let w = 1;
+                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
                     } else {
-                        let c = new Date(start); while (c < end) { cols.push(c.toLocaleString('en-US', { month: 'short', year: '2-digit' })); c.setMonth(c.getMonth() + 1); }
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
+                            curr.setMonth(curr.getMonth() + 1);
+                        }
                     }
-                    const MAX_COLS = 120;
-                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
+                    return cols.length > 0 ? cols : ['Timeline'];
                 });
 
                 const getGanttAllBarStyle = (item, range) => {

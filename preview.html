@@ -859,7 +859,7 @@
                                 <span><span class="inline-block w-4 h-0.5 bg-[var(--cp-red)] opacity-60 mr-0.5 align-middle"></span>Today</span>
                             </div>
                             <div class="cp-toggle flex">
-                                <button v-for="sc in ['Weekly','Monthly','Yearly']" :key="sc"
+                                <button v-for="sc in ['Daily','Weekly','Monthly']" :key="sc"
                                         @click="ganttScale = sc.toLowerCase()"
                                         :class="['cp-toggle-btn text-[0.65rem] uppercase', ganttScale === sc.toLowerCase() ? 'cp-toggle-btn-active' : '']">{{ sc }}</button>
                             </div>
@@ -1030,7 +1030,7 @@
                                 
                                 <div class="flex bg-slate-100 p-1 rounded-md ml-2">
                                     <button @click="viewMode = 'workflow'" :class="['px-4 py-1.5 text-[0.65rem] font-bold rounded-md transition-all uppercase', viewMode === 'workflow' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400']">Workflow</button>
-                                    <button @click="viewMode = 'gantt'" :class="['px-4 py-1.5 text-[0.65rem] font-bold rounded-md transition-all uppercase', viewMode === 'gantt' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400']">Gantt & Timeline</button>
+
                                     <button @click="viewMode = 'files'" :class="['px-4 py-1.5 text-[0.65rem] font-bold rounded-md transition-all uppercase', viewMode === 'files' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400']">Documents</button>
                                 </div>
                             </div>
@@ -1199,80 +1199,7 @@
                         </div>
                     </template>
 
-                    <template v-if="viewMode === 'gantt' && selectedProject && selectedProject.stages">
-                        <!-- Dynamic Gantt Chart View -->
-                        <div class="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-                            <div class="p-5 border-b border-slate-200 flex justify-end gap-3 bg-white">
-                                <span class="text-sm font-bold text-slate-400 self-center mr-2 uppercase">Scale:</span>
-                                <button v-for="scale in ['Weekly', 'Monthly', 'Yearly']" :key="scale"
-                                        @click="ganttScale = scale.toLowerCase()"
-                                        :class="['px-4 py-1.5 text-sm font-bold rounded border transition-all', ganttScale === scale.toLowerCase() ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50']">
-                                    {{ scale }}
-                                </button>
-                            </div>
-                            <div class="p-10 overflow-y-auto custom-scrollbar flex-1">
-                                <div class="bg-white rounded-panel border border-slate-200 overflow-hidden shadow-sm max-w-7xl mx-auto">
-                                    
-                                    <!-- Dynamic Grid Header based on Project Range -->
-                                    <div class="gantt-container bg-slate-100/50 border-b border-slate-200 p-5 font-black text-xs text-slate-400 uppercase tracking-widest relative">
-                                        <div>Phase / Task</div>
-                                        <div class="flex justify-between w-full relative z-10">
-                                            <div v-for="(col, i) in ganttGridColumns" :key="'col-'+i" class="flex-1 text-center border-l border-slate-200/50 first:border-l-0 truncate px-1 text-[10px]">
-                                                {{ col }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <template v-for="(stage, idx) in selectedProject.stages" :key="'gantt-stage-'+idx">
-                                        <div class="gantt-container border-b border-slate-100 hover:bg-blue-50/30 transition-all bg-white relative">
-                                            <div class="p-4 border-r border-slate-100 flex items-center gap-4 relative z-20 bg-white">
-                                                <div :class="['w-8 h-8 rounded-full flex items-center justify-center text-white text-[0.65rem] shadow-sm', getStatusColor(stage.status)]">
-                                                    <i :class="['fas', stage.icon]"></i>
-                                                </div>
-                                                <span class="text-xs font-bold text-slate-700 uppercase truncate" :title="stage.title">{{ stage.title }}</span>
-                                            </div>
-                                            <div class="relative h-16 w-full overflow-hidden">
-                                                <!-- Dynamic Grid Lines -->
-                                                <div class="absolute inset-0 flex divide-x divide-slate-100/50 pointer-events-none">
-                                                    <div v-for="n in ganttGridColumns.length" :key="'grid-s-'+n" class="flex-1"></div>
-                                                </div>
-                                                <!-- Today line -->
-                                                <div class="gantt-today-line" :style="getTodayLineStyle(projectDateRange)"></div>
-                                                <!-- Phase Bar (Percentage-based) -->
-                                                <div :class="['gantt-bar flex items-center px-4 shadow-md border-b-2 transition-all', getStatusColor(stage.status), 'border-black/10']" :style="getGanttBarStyle(stage)">
-                                                    <span class="text-[0.6rem] font-bold text-white uppercase whitespace-nowrap overflow-hidden">
-                                                        {{ calculateDays(stage.startDate, stage.endDate) }}d
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Render Tasks inside Phase for Gantt -->
-                                        <div v-for="(task, tIdx) in stage.tasks" :key="'gantt-task-'+idx+'-'+tIdx" class="gantt-container border-b border-slate-50 hover:bg-slate-50 transition-all bg-slate-50/20 relative">
-                                            <div class="py-3 pr-4 pl-12 border-r border-slate-100 flex items-center gap-3 relative z-20 bg-slate-50/50">
-                                                <i class="fas fa-level-up-alt rotate-90 text-slate-300 text-[0.65rem]"></i>
-                                                <span :class="['text-[0.7rem] font-semibold truncate', task.done ? 'text-slate-400 line-through' : 'text-slate-600']" :title="task.desc">{{ task.desc }}</span>
-                                            </div>
-                                            <div class="relative h-10 w-full overflow-hidden">
-                                                <!-- Dynamic Grid Lines -->
-                                                <div class="absolute inset-0 flex divide-x divide-slate-100/50 pointer-events-none">
-                                                    <div v-for="n in ganttGridColumns.length" :key="'grid-t-'+n" class="flex-1"></div>
-                                                </div>
-                                                <!-- Today line -->
-                                                <div class="gantt-today-line" :style="getTodayLineStyle(projectDateRange)"></div>
-                                                <!-- Task Bar (Percentage-based) -->
-                                                <div v-if="task.startDate && task.endDate" class="gantt-bar flex items-center px-2 shadow-sm border border-slate-300 transition-all bg-white !h-[14px]" :style="getGanttBarStyle(task)">
-                                                    <span class="text-[0.55rem] font-bold text-slate-600 uppercase whitespace-nowrap overflow-hidden">
-                                                        {{ calculateDays(task.startDate, task.endDate) }}d
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
+
 
                     <!-- Dynamic Documents / Drive View -->
                     <template v-if="viewMode === 'files' && selectedProject">
@@ -3022,24 +2949,23 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const ganttGridColumns = computed(() => {
                     const { start, end, totalDays } = projectDateRange.value;
                     const cols = [];
-                    if (ganttScale.value === 'weekly') {
-                        let w = 1;
-                        for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
-                    } else if (ganttScale.value === 'yearly') {
+                    if (ganttScale.value === 'daily') {
                         let curr = new Date(start);
-                        while (curr.getFullYear() <= end.getFullYear()) {
-                            cols.push(curr.getFullYear().toString());
-                            curr.setFullYear(curr.getFullYear() + 1);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
+                            curr.setDate(curr.getDate() + 1);
                         }
+                    } else if (ganttScale.value === 'weekly') {
+                        let w = 1;
+                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
                     } else {
                         let curr = new Date(start);
-                        while (curr < end) {
+                        while (curr <= end && cols.length < 150) {
                             cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
                             curr.setMonth(curr.getMonth() + 1);
                         }
                     }
-                    const MAX_COLS = 120;
-                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
+                    return cols.length > 0 ? cols : ['Timeline'];
                 });
 
                 // Mirrors GanttService.calculateBarStyle — left% and width% relative to the date range.
@@ -3102,15 +3028,23 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const ganttAllGridColumns = computed(() => {
                     const { start, end, totalDays } = ganttAllDateRange.value;
                     const cols = [];
-                    if (ganttScale.value === 'weekly') {
-                        let w = 1; for (let i = 0; i < totalDays; i += 7) cols.push('W' + w++);
-                    } else if (ganttScale.value === 'yearly') {
-                        let c = new Date(start); while (c.getFullYear() <= end.getFullYear()) { cols.push(c.getFullYear().toString()); c.setFullYear(c.getFullYear() + 1); }
+                    if (ganttScale.value === 'daily') {
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
+                            curr.setDate(curr.getDate() + 1);
+                        }
+                    } else if (ganttScale.value === 'weekly') {
+                        let w = 1;
+                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
                     } else {
-                        let c = new Date(start); while (c < end) { cols.push(c.toLocaleString('en-US', { month: 'short', year: '2-digit' })); c.setMonth(c.getMonth() + 1); }
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
+                            curr.setMonth(curr.getMonth() + 1);
+                        }
                     }
-                    const MAX_COLS = 120;
-                    return (cols.length > 0 ? cols : ['Timeline']).slice(0, MAX_COLS);
+                    return cols.length > 0 ? cols : ['Timeline'];
                 });
 
                 const getGanttAllBarStyle = (item, range) => {
