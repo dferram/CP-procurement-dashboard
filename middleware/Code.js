@@ -568,5 +568,5 @@ function getCurrentUserEmail() {
  * Usado con la sintaxis <?!= include('nombre-archivo') ?> en index.html
  */
 function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  return HtmlService.createTemplateFromFile(filename).evaluate().getContent();
 }
