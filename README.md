@@ -1,7 +1,7 @@
 
-<img src="public/colpal.png" width="80" align="left" style=" margin-bottom: 8px"/>
+<img src="public/colpal.png" width="80" align="right" style=" margin-bottom: 8px"/>
 
-# Colgate-Palmolive — Procurement PMO
+# _**Colgate-Palmolive — Procurement PMO**_
 
 ![Google Sheets](https://img.shields.io/badge/Google%20Sheets-34A853?style=for-the-badge&logo=google-sheets&logoColor=white)
 ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?style=for-the-badge&logo=google-drive&logoColor=white)
