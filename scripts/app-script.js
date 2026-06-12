@@ -775,7 +775,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     destroyCharts();
                     if (typeof Chart === 'undefined') return;
                     const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
-                    const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETE':'#0047BB','DONE':'#0047BB','STOPPED':'#6b7280' };
+                    const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETED':'#10b981','COMPLETE':'#10b981','IN PROGRESS':'#3b82f6','PENDING':'#8b5cf6','DONE':'#0047BB','STOPPED':'#ef4444' };
                     if (filterProject.value !== 'ALL') {
                         // ── PROJECT MODE ──────────────────────────────────
                         if (chartStatusRef.value) {
@@ -788,7 +788,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         }
                         if (chartPhaseRef.value) {
                             const td = projectTasksData.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#94a3b8','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#3b82f6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
                         }
                         if (chartOwnerRef.value) {
                             const pp = projectPhaseProgress.value;
@@ -797,7 +797,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         if (chartProgressRef.value) {
                             const p = selectedProjectObj.value;
                             const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
-                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#94a3b8' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
+                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#3b82f6' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
                         }
                     } else {
                         // ── PORTFOLIO MODE ────────────────────────────────

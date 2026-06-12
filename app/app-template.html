@@ -669,7 +669,7 @@
                                             <div class="min-w-0">
                                                 <p class="text-[0.68rem] font-black text-slate-800 truncate uppercase leading-tight" :title="proj.title">{{ proj.title }}</p>
                                                 <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                                    <span :class="['text-[0.52rem] px-1.5 py-0.5 rounded font-bold uppercase', getStatusCycleColor(proj.cycleStatus)]">{{ proj.cycleStatus }}</span>
+                                                    <span class="text-[0.52rem] px-1.5 py-0.5 rounded font-bold uppercase" :style="getStatusCycleColor(proj.cycleStatus)">{{ proj.cycleStatus }}</span>
                                                     <span class="text-[0.55rem] text-slate-400 font-semibold">{{ proj.category }}</span>
                                                     <span class="text-[0.52rem] text-slate-400">· {{ proj.projectOwner || 'No owner' }}</span>
                                                 </div>
