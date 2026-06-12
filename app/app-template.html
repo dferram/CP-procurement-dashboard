@@ -782,6 +782,17 @@
                             <div class="flex flex-wrap items-center gap-4 mt-1">
                                 <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ selectedProject.code }}</span>
                                 <span class="text-[0.65rem] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-bold uppercase border border-slate-200">{{ selectedProject.category || 'Uncategorized' }}</span>
+                                <span class="relative inline-flex items-center">
+                                    <select v-model="selectedProject.cycleStatus" @change="silentSaveProject(selectedProject)" :style="getStatusCycleColor(selectedProject.cycleStatus)" class="text-[0.65rem] px-2.5 py-0.5 pr-6 rounded font-bold uppercase cursor-pointer appearance-none outline-none shadow-sm transition-all hover:brightness-95">
+                                        <option style="background:white;color:#333;" value="ON TRACK">ON TRACK</option>
+                                        <option style="background:white;color:#333;" value="DELAYED">DELAYED</option>
+                                        <option style="background:white;color:#333;" value="AT RISK">AT RISK</option>
+                                        <option style="background:white;color:#333;" value="ON HOLD">ON HOLD</option>
+                                        <option style="background:white;color:#333;" value="CANCELLED">CANCELLED</option>
+                                        <option style="background:white;color:#333;" value="COMPLETED">COMPLETED</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-2 text-[0.55rem] text-white pointer-events-none opacity-80"></i>
+                                </span>
                                 
                                 <span v-if="getProjectAlerts(selectedProject) > 0" class="text-[0.65rem] bg-red-100 text-red-600 font-bold px-2.5 py-0.5 rounded flex items-center gap-1.5">
                                     <i class="fas fa-exclamation-triangle"></i> {{ getProjectAlerts(selectedProject) }} Active Alert(s)
@@ -790,6 +801,7 @@
                                 <div class="flex bg-slate-100 p-1 rounded-md ml-2">
                                     <button @click="viewMode = 'workflow'" :class="['px-4 py-1.5 text-[0.65rem] font-bold rounded-md transition-all uppercase', viewMode === 'workflow' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400']">Workflow</button>
                                     <button @click="viewMode = 'gantt'" :class="['px-4 py-1.5 text-[0.65rem] font-bold rounded-md transition-all uppercase', viewMode === 'gantt' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400']">Gantt & Timeline</button>
+                                    <button @click="viewMode = 'files'" :class="['px-4 py-1.5 text-[0.65rem] font-bold rounded-md transition-all uppercase', viewMode === 'files' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400']">Documents</button>
                                 </div>
                             </div>
                         </div>
@@ -934,11 +946,14 @@
                                                         <span v-if="task.startDate || task.endDate" class="text-[0.65rem] text-blue-600 bg-blue-50 border border-blue-100 px-2 py-1 rounded font-bold">
                                                             <i class="far fa-calendar-alt mr-1"></i> {{ formatDate(task.startDate) }} - {{ formatDate(task.endDate) }}
                                                         </span>
-                                                        <span v-if="task.alert" class="text-xs text-red-500 font-bold uppercase bg-red-50 px-2.5 py-1 rounded"><i class="fas fa-exclamation-triangle"></i> Alert</span>
-                                                        <span class="text-xs text-slate-500 bg-white border px-2.5 py-1 rounded shadow-sm"><i class="fas fa-user-tag mr-1.5"></i>{{ task.assignee || 'Unassigned' }}</span>
+                                                        <button @click="toggleTaskAlert(task)" :class="['text-[0.65rem] font-bold uppercase px-2.5 py-1 rounded transition-colors', task.alert ? 'text-red-600 bg-red-100 hover:bg-red-200' : 'text-slate-400 bg-slate-100 hover:bg-slate-200']"><i class="fas fa-exclamation-triangle"></i> Alert</button>
+                                                        <span class="text-[0.65rem] text-slate-500 bg-white border px-2.5 py-1 rounded shadow-sm"><i class="fas fa-user-tag mr-1.5"></i>{{ task.assignee || 'Unassigned' }}</span>
                                                     </div>
                                                 </div>
-                                                <p v-if="task.alert && task.alertComment" class="text-sm text-red-600 mt-3 bg-red-50/50 p-3 rounded border border-red-100 font-medium"><i class="fas fa-exclamation-circle mr-1"></i> {{ task.alertComment }}</p>
+                                                <div v-if="task.alert" class="mt-3 relative">
+                                                    <i class="fas fa-exclamation-circle text-red-400 absolute top-3 left-3"></i>
+                                                    <textarea v-model="task.alertComment" @change="silentSaveProject(selectedProject)" placeholder="Describe the reason for this alert..." class="w-full pl-9 pr-4 py-2.5 bg-red-50/50 border border-red-100 text-sm text-red-700 rounded outline-none focus:ring-1 focus:ring-red-300 transition-all placeholder:text-red-300 resize-none overflow-hidden" rows="2"></textarea>
+                                                </div>
                                                 <div v-if="task.comment" class="mt-3 text-sm text-slate-600 bg-white p-3 rounded border border-slate-200 shadow-sm relative">
                                                     <i class="fas fa-quote-left text-slate-200 absolute top-2 left-2 text-xl"></i>
                                                     <p class="pl-6 relative z-10">{{ task.comment }}</p>
@@ -1024,6 +1039,78 @@
                                             </div>
                                         </div>
                                     </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Dynamic Documents / Drive View -->
+                    <template v-if="viewMode === 'files' && selectedProject">
+                        <div class="flex-1 flex flex-col p-10 bg-slate-50 overflow-y-auto">
+                            <div class="max-w-5xl mx-auto w-full bg-white rounded-panel border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+                                <!-- Drive Initialized / File Explorer UI -->
+                                <div v-if="selectedProject.driveFolderId" class="flex flex-col h-full flex-1">
+                                    <!-- Explorer Toolbar -->
+                                    <div class="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between shrink-0">
+                                        <div class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                                            <button @click="fetchDriveContents(selectedProject.driveFolderId)" class="hover:text-blue-600 p-1"><i class="fas fa-home"></i></button>
+                                            <span class="text-slate-300">/</span>
+                                            <span>{{ selectedProject.code }} - {{ selectedProject.title }}</span>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button @click="triggerDriveUpload" class="bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-bold hover:bg-blue-700 shadow-sm transition-colors"><i class="fas fa-upload mr-1.5"></i> Upload File</button>
+                                            <button @click="createDriveSubFolder" class="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded text-xs font-bold hover:bg-slate-50 shadow-sm"><i class="fas fa-folder-plus mr-1"></i> New Folder</button>
+                                            <button @click="fetchDriveContents(selectedProject.driveFolderId)" class="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded text-xs font-bold hover:bg-slate-50 shadow-sm" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                                        </div>
+                                    </div>
+                                    <!-- Explorer Body -->
+                                    <div class="flex-1 overflow-y-auto p-6 custom-scrollbar relative bg-white min-h-[300px]"
+                                         @dragover.prevent="driveDragActive = true"
+                                         @dragleave.prevent="driveDragActive = false"
+                                         @drop.prevent="handleDriveDrop">
+                                        
+                                        <div v-if="driveDragActive" class="absolute inset-4 border-2 border-dashed border-blue-400 bg-blue-50/80 z-10 flex items-center justify-center rounded-panel backdrop-blur-sm transition-all">
+                                            <div class="text-center text-blue-600">
+                                                <i class="fas fa-cloud-upload-alt text-5xl mb-3 animate-bounce"></i>
+                                                <p class="font-bold text-xl">Drop files to upload to Drive</p>
+                                            </div>
+                                        </div>
+
+                                        <div v-if="isDriveLoading" class="flex justify-center items-center h-full">
+                                            <img src="<?= getLogoBlue() ?>" class="w-16 h-16 object-contain animate-pulse" alt="Loading" />
+                                        </div>
+
+                                        <div v-else-if="!driveFiles.length && !driveFolders.length" class="text-center py-20 opacity-50 flex flex-col items-center justify-center h-full">
+                                            <i class="fas fa-folder-open text-6xl mb-4 text-slate-300"></i>
+                                            <p class="text-sm font-bold text-slate-500 uppercase">Folder is empty</p>
+                                        </div>
+
+                                        <div v-else class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                                            <!-- Subfolders -->
+                                            <div v-for="folder in driveFolders" :key="folder.id" 
+                                                 @click="fetchDriveContents(folder.id)"
+                                                 class="border border-slate-200 rounded p-4 text-center cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group bg-slate-50 hover:bg-white relative">
+                                                <button @click.stop="deleteDriveItem(folder.id, true)" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-trash text-xs"></i></button>
+                                                <i class="fas fa-folder text-4xl text-blue-400 mb-3 group-hover:scale-110 transition-transform"></i>
+                                                <p class="text-xs font-bold text-slate-700 truncate px-1" :title="folder.name">{{ folder.name }}</p>
+                                            </div>
+                                            <!-- Files -->
+                                            <a v-for="file in driveFiles" :key="file.id" 
+                                               :href="file.url" target="_blank"
+                                               class="border border-slate-200 rounded p-4 text-center hover:border-emerald-400 hover:shadow-md transition-all group bg-white relative block">
+                                                <button @click.prevent="deleteDriveItem(file.id, false)" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-trash text-xs"></i></button>
+                                                <i :class="['fas text-4xl mb-3 group-hover:scale-110 transition-transform', getFileIcon(file.mimeType)]"></i>
+                                                <p class="text-xs font-bold text-slate-700 truncate px-1" :title="file.name">{{ file.name }}</p>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Drive Not Initialized -->
+                                <div v-else class="p-16 flex flex-col items-center justify-center text-center bg-white flex-1 h-full">
+                                    <i class="fab fa-google-drive text-6xl text-slate-200 mb-4"></i>
+                                    <h4 class="text-xl font-bold text-slate-700 mb-2">Drive Folder Not Initialized</h4>
+                                    <p class="text-sm text-slate-500 max-w-md mb-6">A root folder for this project will be automatically generated in Google Drive once you initialize it.</p>
+                                    <button @click="silentSaveProject(selectedProject)" class="bg-blue-600 text-white px-8 py-3 rounded-custom text-sm font-bold uppercase tracking-wider shadow-sm hover:bg-blue-700 transition-colors"><i class="fas fa-cloud-upload-alt mr-2"></i> Initialize Drive Folder</button>
                                 </div>
                             </div>
                         </div>
