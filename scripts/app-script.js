@@ -1052,11 +1052,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 });
 
                 const destroyCharts = () => {
-                    ['status','budget','phase','owner','progress'].forEach(k => {
-                        if (chartInstances[k]) { chartInstances[k].destroy(); chartInstances[k] = null; }
-                    });
                     Object.keys(chartInstances).forEach(k => {
-                        if (k.startsWith('sparkline_') && chartInstances[k]) {
+                        if (chartInstances[k]) {
                             chartInstances[k].destroy();
                             delete chartInstances[k];
                         }
@@ -1071,6 +1068,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const renderWidgetChart = (widget) => {
                     const canvasEl = document.getElementById('widget-canvas-' + widget.id);
                     if (!canvasEl) return;
+                    const existingChart = Chart.getChart(canvasEl);
+                    if (existingChart) existingChart.destroy();
                     if (widgetChartInstances[widget.id]) { widgetChartInstances[widget.id].destroy(); }
                     const data = computeChartData(widget);
                     const cfg = widget.config || {};
@@ -1113,6 +1112,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         const canvasId = 'kpi-sparkline-' + widget.id;
                         const canvasRef = document.getElementById(canvasId);
                         if (!canvasRef) return;
+
+                        const existingChart = Chart.getChart(canvasRef);
+                        if (existingChart) existingChart.destroy();
                         
                         let rawVal = parseFloat(String(computeKpiValue(widget)).replace(/[^0-9.-]+/g,"")) || 0;
                         if (isNaN(rawVal)) rawVal = 0;
@@ -1159,6 +1161,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         const canvasRef = document.getElementById(canvasId);
 
                         if (!canvasRef) return; // Canvas not found (could be v-if'd out)
+                        
+                        const existingChart = Chart.getChart(canvasRef);
+                        if (existingChart) existingChart.destroy();
 
                         let field = widget.config?.field || widget.id;
                         const validChartFields = ['status', 'budget', 'phase', 'owner', 'progress'];
