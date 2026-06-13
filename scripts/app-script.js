@@ -4,7 +4,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 // ─── UI STATE ────────────────────────────────────────────
                 const collapsed = ref(false);
                 const dialog = ref({ show: false, type: 'alert', message: '', inputValue: '', resolve: null }); // drives the global modal — see dialogConfirm/dialogCancel
-                const currentView = ref('dashboard');
+                const currentView = ref('summary');
                 const viewMode = ref('workflow');
                 const searchQuery = ref('');
                 const viewerOpen = ref(false);
@@ -71,6 +71,270 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const newCpMember = ref('');
                 const newExternalMember = ref('');
                 const newSuggestion = ref({ title: '', icon: 'fa-tasks' });
+
+                // ─── DASHBOARD WIDGETS ────────────────────────────────────
+                // Default widget definitions — these come pre-configured on first load.
+                // Users can remove, reorder, or add new ones.
+                const DEFAULT_DASHBOARD_WIDGETS = [
+                    // ── KPI Row (6 small cards) ──
+                    { id: 'kpi-active',    type: 'kpi', title: 'Active Projects',  size: 'small', isDefault: true, config: { metric: 'count', field: 'active',              icon: 'fa-folder-open',            format: 'number',     colorScheme: 'brand'  } },
+                    { id: 'kpi-ontime',    type: 'kpi', title: '% On Time',        size: 'small', isDefault: true, config: { metric: 'percentage', field: 'onTrack',        icon: 'fa-circle-check',           format: 'percentage', colorScheme: 'success' } },
+                    { id: 'kpi-invest',    type: 'kpi', title: 'Investment',        size: 'small', isDefault: true, config: { metric: 'sum', field: 'investment',            icon: 'fa-dollar-sign',            format: 'currency',   colorScheme: 'warning' } },
+                    { id: 'kpi-savings',   type: 'kpi', title: 'Savings / FTG',     size: 'small', isDefault: true, config: { metric: 'sum', field: 'savings',               icon: 'fa-piggy-bank',             format: 'currency',   colorScheme: 'success' } },
+                    { id: 'kpi-alerts',    type: 'kpi', title: 'Open Alerts',       size: 'small', isDefault: true, config: { metric: 'count', field: 'alerts',              icon: 'fa-triangle-exclamation',   format: 'number',     colorScheme: 'danger'  } },
+                    { id: 'kpi-progress',  type: 'kpi', title: 'Avg Progress',      size: 'small', isDefault: true, config: { metric: 'average', field: 'progress',          icon: 'fa-chart-line',             format: 'percentage', colorScheme: 'brand'   } },
+                    // ── Charts (medium = half width, large = full width) ──
+                    { id: 'chart-status',  type: 'doughnut', title: 'Portfolio Status Distribution',  size: 'medium', isDefault: true, config: { groupBy: 'cycleStatus',    colorScheme: 'status'  } },
+                    { id: 'chart-budget',  type: 'bar',      title: 'Budget by Category',             size: 'medium', isDefault: true, config: { groupBy: 'folder',         colorScheme: 'brand', orientation: 'horizontal' } },
+                    { id: 'chart-phase',   type: 'bar',      title: 'Projects by Current Phase',      size: 'medium', isDefault: true, config: { groupBy: 'currentPhase',   colorScheme: 'brand', orientation: 'vertical'   } },
+                    { id: 'chart-owner',   type: 'bar',      title: 'Workload by Owner',              size: 'medium', isDefault: true, config: { groupBy: 'projectOwner',   colorScheme: 'palette', orientation: 'horizontal' } },
+                    { id: 'chart-prog',    type: 'bar',      title: 'Individual Project Progress',    size: 'large',  isDefault: true, config: { groupBy: 'projectProgress', colorScheme: 'status', orientation: 'horizontal' } },
+                ];
+
+                // Widget UI state
+                const dashboardWidgets  = ref(JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS)));
+                const dashboardEditMode = ref(false);
+                const widgetEditorOpen  = ref(false);
+                const editingWidgetId   = ref(null);
+                const widgetForm        = ref({ type: 'kpi', title: '', size: 'small', config: {} });
+
+                // ── Available metrics for widget configuration ──
+                const widgetTypeOptions = [
+                    { value: 'kpi',      label: 'KPI Card',      icon: 'fa-hashtag'    },
+                    { value: 'doughnut', label: 'Doughnut Chart', icon: 'fa-chart-pie'  },
+                    { value: 'bar',      label: 'Bar Chart',      icon: 'fa-chart-bar'  },
+                    { value: 'progress', label: 'Progress Bar',   icon: 'fa-bars-progress' },
+                ];
+                const widgetSizeOptions = [
+                    { value: 'small',  label: 'Small (1/6 row)'  },
+                    { value: 'medium', label: 'Medium (1/2 row)' },
+                    { value: 'large',  label: 'Large (Full row)' },
+                ];
+                const kpiFieldOptions = [
+                    { value: 'active',     label: 'Active Projects Count' },
+                    { value: 'archived',   label: 'Archived Projects Count' },
+                    { value: 'onTrack',    label: '% On Track' },
+                    { value: 'delayed',    label: 'Delayed Count' },
+                    { value: 'atRisk',     label: 'At Risk Count' },
+                    { value: 'investment', label: 'Total Investment' },
+                    { value: 'savings',    label: 'Total Savings/FTG' },
+                    { value: 'alerts',     label: 'Open Alerts' },
+                    { value: 'progress',   label: 'Average Progress' },
+                    { value: 'totalTasks', label: 'Total Tasks' },
+                    { value: 'doneTasks',  label: 'Completed Tasks' },
+                ];
+                const groupByOptions = [
+                    { value: 'cycleStatus',      label: 'Project Status' },
+                    { value: 'folder',           label: 'Folder / Category' },
+                    { value: 'projectOwner',     label: 'Project Owner' },
+                    { value: 'currentPhase',     label: 'Current Phase' },
+                    { value: 'projectProgress',  label: 'Per-Project Progress' },
+                ];
+                const kpiIconOptions = [
+                    'fa-folder-open', 'fa-circle-check', 'fa-dollar-sign', 'fa-piggy-bank',
+                    'fa-triangle-exclamation', 'fa-chart-line', 'fa-layer-group', 'fa-users',
+                    'fa-bullseye', 'fa-fire', 'fa-gauge-high', 'fa-ranking-star',
+                    'fa-arrow-trend-up', 'fa-arrow-trend-down', 'fa-clock', 'fa-flag'
+                ];
+                const colorSchemeOptions = [
+                    { value: 'brand',   label: 'Brand Blue' },
+                    { value: 'success', label: 'Green (Success)' },
+                    { value: 'warning', label: 'Amber (Warning)' },
+                    { value: 'danger',  label: 'Red (Danger)' },
+                    { value: 'status',  label: 'Status Colors' },
+                    { value: 'palette', label: 'Multi-Color Palette' },
+                ];
+
+                // ── Widget CRUD ──
+                const openWidgetEditor = (widgetId) => {
+                    if (widgetId) {
+                        editingWidgetId.value = widgetId;
+                        const w = dashboardWidgets.value.find(x => x.id === widgetId);
+                        if (w) widgetForm.value = JSON.parse(JSON.stringify({ type: w.type, title: w.title, size: w.size, config: w.config }));
+                    } else {
+                        editingWidgetId.value = null;
+                        widgetForm.value = { type: 'kpi', title: 'New Widget', size: 'small', config: { metric: 'count', field: 'active', icon: 'fa-chart-line', format: 'number', colorScheme: 'brand' } };
+                    }
+                    widgetEditorOpen.value = true;
+                };
+
+                const saveWidget = () => {
+                    const form = widgetForm.value;
+                    if (!form.title || form.title.trim() === '') { showToast('Widget title is required.', 'error'); return; }
+                    if (editingWidgetId.value) {
+                        // Update existing
+                        const idx = dashboardWidgets.value.findIndex(w => w.id === editingWidgetId.value);
+                        if (idx > -1) {
+                            dashboardWidgets.value[idx].type   = form.type;
+                            dashboardWidgets.value[idx].title  = form.title.trim();
+                            dashboardWidgets.value[idx].size   = form.size;
+                            dashboardWidgets.value[idx].config = JSON.parse(JSON.stringify(form.config));
+                        }
+                    } else {
+                        // Create new
+                        dashboardWidgets.value.push({
+                            id: 'w_' + Date.now(),
+                            type: form.type,
+                            title: form.title.trim(),
+                            size: form.size,
+                            isDefault: false,
+                            config: JSON.parse(JSON.stringify(form.config)),
+                        });
+                    }
+                    widgetEditorOpen.value = false;
+                    saveDashboardWidgets();
+                    if (currentView.value === 'summary') nextTick(initCharts);
+                };
+
+                const removeWidget = async (id) => {
+                    if (!await showConfirm('Remove this widget from the dashboard?')) return;
+                    dashboardWidgets.value = dashboardWidgets.value.filter(w => w.id !== id);
+                    saveDashboardWidgets();
+                    if (currentView.value === 'summary') nextTick(initCharts);
+                };
+
+                const resetWidgetsToDefaults = async () => {
+                    if (!await showConfirm('Reset all widgets to defaults? Custom widgets will be removed.')) return;
+                    dashboardWidgets.value = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+                    saveDashboardWidgets();
+                    if (currentView.value === 'summary') nextTick(initCharts);
+                };
+
+                const moveWidget = (idx, direction) => {
+                    const newIdx = idx + direction;
+                    if (newIdx < 0 || newIdx >= dashboardWidgets.value.length) return;
+                    const arr = dashboardWidgets.value;
+                    [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+                    dashboardWidgets.value = [...arr];
+                    saveDashboardWidgets();
+                };
+
+                // Persist widgets to backend config
+                const saveDashboardWidgets = () => {
+                    gsRun('saveDashboardWidgets', [JSON.stringify(dashboardWidgets.value)]);
+                    if (typeof google === 'undefined' || !google.script) {
+                        showToast('Dashboard layout saved!', 'success');
+                    }
+                };
+
+                // ── Widget Data Computation ──
+                // Computes the value/data for a single widget based on its config and filtered projects
+                const computeKpiValue = (widget) => {
+                    const active = filteredProjects.value.filter(p => !p.archived);
+                    const cfg = widget.config || {};
+                    const field = cfg.field || 'active';
+                    switch (field) {
+                        case 'active':     return active.length;
+                        case 'archived':   return projects.value.filter(p => p.archived).length;
+                        case 'onTrack': {
+                            const onTrackCount = active.filter(p => p.cycleStatus === 'ON TRACK').length;
+                            return active.length ? Math.round((onTrackCount / active.length) * 100) : 0;
+                        }
+                        case 'delayed':    return active.filter(p => p.cycleStatus === 'DELAYED').length;
+                        case 'atRisk':     return active.filter(p => p.cycleStatus === 'AT RISK').length;
+                        case 'investment': {
+                            let total = 0;
+                            active.forEach(p => { if (p.finances?.calculated > 0) total += p.finances.calculated; });
+                            return total;
+                        }
+                        case 'savings': {
+                            let total = 0;
+                            active.forEach(p => { if (p.finances?.calculated < 0) total += Math.abs(p.finances.calculated); });
+                            return total;
+                        }
+                        case 'alerts':     return active.reduce((acc, p) => acc + getProjectAlerts(p), 0);
+                        case 'progress':   return active.length ? Math.round(active.reduce((s, p) => s + calculateProgress(p), 0) / active.length) : 0;
+                        case 'totalTasks': {
+                            let count = 0;
+                            active.forEach(p => (p.stages || []).forEach(s => count += (s.tasks || []).length));
+                            return count;
+                        }
+                        case 'doneTasks': {
+                            let count = 0;
+                            active.forEach(p => (p.stages || []).forEach(s => count += (s.tasks || []).filter(t => t.done).length));
+                            return count;
+                        }
+                        default: return 0;
+                    }
+                };
+
+                const formatKpiValue = (widget, rawValue) => {
+                    const fmt = widget.config?.format || 'number';
+                    if (fmt === 'percentage') return rawValue + '%';
+                    if (fmt === 'currency') return formatFinance(rawValue);
+                    return String(rawValue);
+                };
+
+                const getKpiSubtext = (widget) => {
+                    const field = widget.config?.field || '';
+                    const active = filteredProjects.value.filter(p => !p.archived);
+                    switch (field) {
+                        case 'active':     return projects.value.filter(p => p.archived).length + ' archived';
+                        case 'onTrack':    return active.filter(p => p.cycleStatus === 'ON TRACK').length + ' of ' + active.length + ' on track';
+                        case 'investment': return active.filter(p => p.finances?.calculated > 0).length + ' projects on-cost';
+                        case 'savings':    return active.filter(p => p.finances?.calculated < 0).length + ' projects FTG';
+                        case 'alerts':     return 'Unresolved task alerts';
+                        case 'progress':   return 'Across ' + active.length + ' active projects';
+                        case 'totalTasks': return 'Across all active projects';
+                        case 'doneTasks':  return 'Tasks marked as complete';
+                        default: return '';
+                    }
+                };
+
+                const getKpiColor = (scheme) => {
+                    switch (scheme) {
+                        case 'brand':   return { text: 'var(--cp-blue)', bg: 'var(--cp-blue-light)' };
+                        case 'success': return { text: '#059669', bg: '#D1FAE5' };
+                        case 'warning': return { text: '#D97706', bg: '#FEF3C7' };
+                        case 'danger':  return { text: '#DC2626', bg: '#FEE2E2' };
+                        default:        return { text: 'var(--cp-blue)', bg: 'var(--cp-blue-light)' };
+                    }
+                };
+
+                // Returns { labels, datasets } for a chart widget
+                const computeChartData = (widget) => {
+                    const active = filteredProjects.value.filter(p => !p.archived);
+                    const groupBy = widget.config?.groupBy || 'cycleStatus';
+                    const statusColors = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8' };
+                    const palette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4','#ec4899','#14b8a6'];
+
+                    if (groupBy === 'cycleStatus') {
+                        const statuses = ['ON TRACK','DELAYED','AT RISK','CANCELLED'];
+                        return {
+                            labels: statuses,
+                            values: statuses.map(s => active.filter(p => p.cycleStatus === s).length),
+                            colors: statuses.map(s => statusColors[s] || '#94a3b8')
+                        };
+                    }
+                    if (groupBy === 'folder') {
+                        return {
+                            labels: customFolders.value,
+                            datasets: [
+                                { label: 'Investment', data: customFolders.value.map(f => active.filter(p => (p.folder||'Uncategorized')===f && p.finances?.calculated>0).reduce((s,p)=>s+p.finances.calculated,0)), color: '#0047BB' },
+                                { label: 'Savings',    data: customFolders.value.map(f => active.filter(p => (p.folder||'Uncategorized')===f && p.finances?.calculated<0).reduce((s,p)=>s+Math.abs(p.finances.calculated),0)), color: '#10b981' },
+                            ]
+                        };
+                    }
+                    if (groupBy === 'currentPhase') {
+                        const counts = {};
+                        active.forEach(p => { const phase = getCurrentPhase(p); counts[phase] = (counts[phase] || 0) + 1; });
+                        return { labels: Object.keys(counts), values: Object.values(counts), colors: Object.keys(counts).map((_, i) => palette[i % palette.length]) };
+                    }
+                    if (groupBy === 'projectOwner') {
+                        const counts = {};
+                        active.forEach(p => { const owner = p.projectOwner || 'Unassigned'; counts[owner] = (counts[owner] || 0) + 1; });
+                        return { labels: Object.keys(counts), values: Object.values(counts), colors: Object.keys(counts).map((_, i) => palette[i % palette.length]) };
+                    }
+                    if (groupBy === 'projectProgress') {
+                        const sorted = active.map(p => ({ label: p.code || p.title, progress: calculateProgress(p), status: p.cycleStatus })).sort((a, b) => b.progress - a.progress);
+                        return {
+                            labels: sorted.map(p => p.label),
+                            values: sorted.map(p => p.progress),
+                            colors: sorted.map(p => statusColors[p.status] || '#0047BB')
+                        };
+                    }
+                    return { labels: [], values: [], colors: [] };
+                };
 
                 // ─── UI CONSTANTS ─────────────────────────────────────────
                 const iconOptions = [
@@ -165,6 +429,15 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             folderState.value = fs;
                         }
                         if (data.config) config.value = data.config;
+                        // Load saved dashboard widgets from config if available
+                        if (data.config && data.config.dashboardWidgets) {
+                            try {
+                                const saved = typeof data.config.dashboardWidgets === 'string'
+                                    ? JSON.parse(data.config.dashboardWidgets)
+                                    : data.config.dashboardWidgets;
+                                if (Array.isArray(saved) && saved.length > 0) dashboardWidgets.value = saved;
+                            } catch(e) { /* keep defaults */ }
+                        }
                         isRefreshing.value = false;
                     }, (err) => {
                         showToast('Error loading data: ' + err.message, 'error');
@@ -632,6 +905,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const chartOwnerRef    = ref(null);
                 const chartProgressRef = ref(null);
                 const chartInstances   = {};
+                const widgetChartInstances = {};
 
                 const procurementStats = computed(() => {
                     const active = filteredProjects.value.filter(p => !p.archived);
@@ -733,11 +1007,11 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const chartTitles = computed(() => {
                     const ip = filterProject.value !== 'ALL';
                     return {
-                        status:   ip ? 'Fases por Status'           : 'Portfolio Status Distribution',
-                        budget:   ip ? 'Progreso por Fase'           : 'Budget by Category',
-                        phase:    ip ? 'Resumen de Tareas'            : 'Projects by Current Phase',
-                        owner:    ip ? 'Alertas Activas por Fase'     : 'Workload by Owner',
-                        progress: ip ? 'Desglose de Tareas por Fase'  : 'Individual Project Progress',
+                        status:   ip ? 'Phases by Status'           : 'Portfolio Status Distribution',
+                        budget:   ip ? 'Progress by Phase'           : 'Budget by Category',
+                        phase:    ip ? 'Task Summary'            : 'Projects by Current Phase',
+                        owner:    ip ? 'Active Alerts by Phase'     : 'Workload by Owner',
+                        progress: ip ? 'Task Breakdown by Phase'  : 'Individual Project Progress',
                     };
                 });
 
@@ -754,12 +1028,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         const noDateStages = stages.filter(s => !s.startDate || !s.endDate).length;
                         const allTasks = stages.flatMap(s => s.tasks || []);
                         const doneTasks = allTasks.filter(t => t.done).length;
-                        list.push({ type: progress >= 75 ? 'success' : progress >= 40 ? 'info' : 'warning', text: `Progreso: ${progress}% — Fase activa: ${phase}` });
-                        if (p.cycleStatus === 'DELAYED' || p.cycleStatus === 'AT RISK') list.push({ type: 'warning', text: `Proyecto en estado ${p.cycleStatus}` });
-                        if (alertCount > 0) list.push({ type: 'error', text: `${alertCount} tarea(s) con alerta activa` });
-                        list.push({ type: 'info', text: `${doneTasks} de ${allTasks.length} tareas completadas — ${doneStages} de ${stages.length} fases finalizadas` });
-                        if (noDateStages > 0) list.push({ type: 'info', text: `${noDateStages} fase(s) sin fechas de inicio/fin` });
-                        if (!p.projectOwner) list.push({ type: 'info', text: 'Sin responsable asignado al proyecto' });
+                        list.push({ type: progress >= 75 ? 'success' : progress >= 40 ? 'info' : 'warning', text: `Progress: ${progress}% — Active phase: ${phase}` });
+                        if (p.cycleStatus === 'DELAYED' || p.cycleStatus === 'AT RISK') list.push({ type: 'warning', text: `Project in ${p.cycleStatus} state` });
+                        if (alertCount > 0) list.push({ type: 'error', text: `${alertCount} task(s) with active alert` });
+                        list.push({ type: 'info', text: `${doneTasks} of ${allTasks.length} tasks completed — ${doneStages} of ${stages.length} phases finalized` });
+                        if (noDateStages > 0) list.push({ type: 'info', text: `${noDateStages} phase(s) without start/end dates` });
+                        if (!p.projectOwner) list.push({ type: 'info', text: 'No owner assigned to the project' });
                         return list;
                     }
                     const active = filteredProjects.value.filter(p => !p.archived);
@@ -769,11 +1043,11 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     const noDates = active.filter(p => p.stages?.some(s => !s.startDate)).length;
                     const avgProgress = active.length ? Math.round(active.reduce((s, p) => s + calculateProgress(p), 0) / active.length) : 0;
                     const list = [];
-                    if (atRisk > 0)       list.push({ type: 'warning', text: `${atRisk} proyecto(s) DELAYED o AT RISK requieren atención` });
-                    if (openAlerts > 0)   list.push({ type: 'error',   text: `${openAlerts} tarea(s) con alerta activa sin resolver` });
-                    if (noOwner > 0)      list.push({ type: 'info',    text: `${noOwner} proyecto(s) sin responsable asignado` });
-                    if (noDates > 0)      list.push({ type: 'info',    text: `${noDates} proyecto(s) con fases sin cronograma` });
-                    if (avgProgress > 75) list.push({ type: 'success', text: `Portafolio en etapa avanzada — ${avgProgress}% de progreso promedio` });
+                    if (atRisk > 0)       list.push({ type: 'warning', text: `${atRisk} project(s) DELAYED or AT RISK require attention` });
+                    if (openAlerts > 0)   list.push({ type: 'error',   text: `${openAlerts} task(s) with active alert unresolved` });
+                    if (noOwner > 0)      list.push({ type: 'info',    text: `${noOwner} project(s) without assigned owner` });
+                    if (noDates > 0)      list.push({ type: 'info',    text: `${noDates} project(s) with phases without schedule` });
+                    if (avgProgress > 75) list.push({ type: 'success', text: `Portfolio in advanced stage — ${avgProgress}% average progress` });
                     return list;
                 });
 
@@ -781,30 +1055,68 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     ['status','budget','phase','owner','progress'].forEach(k => {
                         if (chartInstances[k]) { chartInstances[k].destroy(); chartInstances[k] = null; }
                     });
+                    // Destroy dynamic widget chart instances
+                    Object.keys(widgetChartInstances).forEach(k => {
+                        if (widgetChartInstances[k]) { widgetChartInstances[k].destroy(); delete widgetChartInstances[k]; }
+                    });
+                };
+
+                // Renders a single widget's chart on its canvas element
+                const renderWidgetChart = (widget) => {
+                    const canvasEl = document.getElementById('widget-canvas-' + widget.id);
+                    if (!canvasEl) return;
+                    if (widgetChartInstances[widget.id]) { widgetChartInstances[widget.id].destroy(); }
+                    const data = computeChartData(widget);
+                    const cfg = widget.config || {};
+                    const isHorizontal = cfg.orientation === 'horizontal';
+                    const isProgress = cfg.groupBy === 'projectProgress';
+
+                    if (widget.type === 'doughnut') {
+                        widgetChartInstances[widget.id] = new Chart(canvasEl, {
+                            type: 'doughnut',
+                            data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: data.colors, borderWidth: 2, borderColor: '#fff' }] },
+                            options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11, weight: '700' }, padding: 14 } } } }
+                        });
+                    } else if (widget.type === 'bar') {
+                        const datasets = data.datasets
+                            ? data.datasets.map(ds => ({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: 4 }))
+                            : [{ label: widget.title, data: data.values, backgroundColor: data.colors, borderRadius: 4 }];
+                        const scaleOpts = isProgress
+                            ? { x: { min: 0, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } }
+                            : isHorizontal
+                                ? { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } }
+                                : { y: { ticks: { stepSize: 1, font: { size: 10 } } }, x: { ticks: { font: { size: 10 }, maxRotation: 40 } } };
+                        widgetChartInstances[widget.id] = new Chart(canvasEl, {
+                            type: 'bar',
+                            data: { labels: data.labels, datasets },
+                            options: { indexAxis: isHorizontal || isProgress ? 'y' : 'x', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: !!data.datasets, position: 'bottom', labels: { font: { size: 10 } } } }, scales: scaleOpts }
+                        });
+                    }
                 };
 
                 const initCharts = () => {
                     destroyCharts();
                     if (typeof Chart === 'undefined') return;
-                    const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
                     const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETED':'#10b981','COMPLETE':'#10b981','IN PROGRESS':'#3b82f6','PENDING':'#8b5cf6','DONE':'#0047BB','STOPPED':'#ef4444' };
+                    const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
+
                     if (filterProject.value !== 'ALL') {
-                        // ── PROJECT MODE ──────────────────────────────────
+                        // ── PROJECT MODE — legacy refs for backward compat ──
                         if (chartStatusRef.value) {
                             const psd = projectPhaseStatusData.value;
                             chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:psd.labels, datasets:[{ data:psd.values, backgroundColor:psd.labels.map(l=>statusMap[l]||'#94a3b8'), borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
                         }
                         if (chartBudgetRef.value) {
                             const pp = projectPhaseProgress.value;
-                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completado', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completed', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
                         }
                         if (chartPhaseRef.value) {
                             const td = projectTasksData.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#3b82f6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completed','Pending','At Risk'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#8b5cf6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
                         }
                         if (chartOwnerRef.value) {
                             const pp = projectPhaseProgress.value;
-                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alertas', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alerts', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
                         }
                         if (chartProgressRef.value) {
                             const p = selectedProjectObj.value;
@@ -812,28 +1124,10 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#3b82f6' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
                         }
                     } else {
-                        // ── PORTFOLIO MODE ────────────────────────────────
-                        if (chartStatusRef.value) {
-                            const sd = summaryStatusData.value;
-                            chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:sd.labels, datasets:[{ data:sd.values, backgroundColor:['#10b981','#f59e0b','#f97316','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
-                        }
-                        if (chartBudgetRef.value) {
-                            const bd = summaryBudgetByFolder.value;
-                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:bd.map(d=>d.folder), datasets:[{ label:'Investment', data:bd.map(d=>d.investment), backgroundColor:'#0047BB' },{ label:'Savings', data:bd.map(d=>d.savings), backgroundColor:'#10b981' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ ticks:{ font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                        if (chartPhaseRef.value) {
-                            const pd = summaryProjectsByPhase.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'bar', data:{ labels:Object.keys(pd), datasets:[{ label:'Projects', data:Object.values(pd), backgroundColor:'#0047BB', borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ stepSize:1, font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:40 } } } } });
-                        }
-                        if (chartOwnerRef.value) {
-                            const od = summaryProjectsByOwner.value;
-                            const labels = Object.keys(od);
-                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels, datasets:[{ label:'Projects', data:Object.values(od), backgroundColor:labels.map((_,i)=>ownerPalette[i%ownerPalette.length]), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                        if (chartProgressRef.value) {
-                            const pp = summaryProgressPerProject.value;
-                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Progress', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
+                        // ── PORTFOLIO MODE — render dynamic widget charts ──
+                        dashboardWidgets.value
+                            .filter(w => w.type === 'doughnut' || w.type === 'bar')
+                            .forEach(w => nextTick(() => renderWidgetChart(w)));
                     }
                 };
 
@@ -1383,6 +1677,11 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     procurementStats, summaryStatusData, summaryBudgetByFolder, summaryProjectsByPhase, summaryProjectsByOwner, summaryProgressPerProject, insights,
                     selectedProjectObj, projectPhaseStatusData, projectPhaseProgress, projectTasksData, chartTitles,
                     chartStatusRef, chartBudgetRef, chartPhaseRef, chartOwnerRef, chartProgressRef,
+                    // Widget system
+                    dashboardWidgets, dashboardEditMode, widgetEditorOpen, editingWidgetId, widgetForm,
+                    widgetTypeOptions, widgetSizeOptions, kpiFieldOptions, groupByOptions, kpiIconOptions, colorSchemeOptions,
+                    openWidgetEditor, saveWidget, removeWidget, resetWidgetsToDefaults, moveWidget,
+                    computeKpiValue, formatKpiValue, getKpiSubtext, getKpiColor, computeChartData,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
                     filterStatus, filterOwner, filterFolder, filterProject, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttGridMinWidth, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,

@@ -79,7 +79,7 @@ class ConfigService {
       const sheetRepo = new SheetRepository();
       const configData = sheetRepo.getAllData('Configuration');
 
-      const config = { cpTeam: [], externalTeam: [], suggestions: [] };
+      const config = { cpTeam: [], externalTeam: [], suggestions: [], dashboardWidgets: null };
 
       configData.forEach(row => {
         if (row[0] === "CP_TEAM") {
@@ -94,12 +94,15 @@ class ConfigService {
           try { config.suggestions = JSON.parse(row[1]); }
           catch (e) { Logger.log(`Error al parsear SUGGESTIONS: ${e.message}`); }
         }
+        if (row[0] === "DASHBOARD_WIDGETS") {
+          config.dashboardWidgets = row[1] || null;
+        }
       });
 
       return config;
     } catch (e) {
       Logger.log(`Error en getFullConfig: ${e.message}`);
-      return { cpTeam: [], externalTeam: [], suggestions: [] };
+      return { cpTeam: [], externalTeam: [], suggestions: [], dashboardWidgets: null };
     }
   }
 
@@ -116,15 +119,24 @@ class ConfigService {
       const updates = {
         CP_TEAM:       JSON.stringify(configObj.cpTeam       || []),
         EXTERNAL_TEAM: JSON.stringify(configObj.externalTeam || []),
-        SUGGESTIONS:   JSON.stringify(configObj.suggestions  || [])
+        SUGGESTIONS:   JSON.stringify(configObj.suggestions  || []),
+        DASHBOARD_WIDGETS: configObj.dashboardWidgets || null
       };
 
       for (let i = 0; i < configData.length; i++) {
         const key = configData[i][0];
         if (updates[key] !== undefined) {
           sheetRepo.setCellValue('Configuration', i + 2, 2, updates[key]);
+          delete updates[key];
         }
       }
+
+      // Añadir claves nuevas que no existían
+      Object.keys(updates).forEach(key => {
+        if (updates[key] !== undefined && updates[key] !== null) {
+          sheetRepo.appendRow('Configuration', [key, updates[key]]);
+        }
+      });
 
       Logger.log('Configuración guardada');
       return true;

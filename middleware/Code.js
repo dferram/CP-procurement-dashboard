@@ -614,6 +614,26 @@ function getCurrentUserEmail() {
 }
 
 // =====================================================
+// DASHBOARD WIDGETS
+// =====================================================
+
+/**
+ * Guarda los widgets del dashboard en la configuración
+ * @param {string} widgetsJson - Array de widgets en formato JSON
+ * @return {boolean}
+ */
+function saveDashboardWidgets(widgetsJson) {
+  try {
+    const config = ConfigService.getFullConfig();
+    config.dashboardWidgets = widgetsJson;
+    return ConfigService.saveConfig(config);
+  } catch (e) {
+    Logger.log(`Error en saveDashboardWidgets: ${e.message}`);
+    return false;
+  }
+}
+
+// =====================================================
 // HTML TEMPLATE HELPER
 // =====================================================
 
