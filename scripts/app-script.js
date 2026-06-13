@@ -847,51 +847,76 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 // picks min/max, then adds a 7-day buffer on each side.
                 const projectDateRange = computed(() => {
                     const stages = selectedProject.value?.stages;
+                    let mn = null, mx = null;
                     if (!stages || stages.length === 0) {
-                        const today = new Date();
-                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
-                    }
-
-                    const timestamps = [];
-                    stages.forEach(s => {
-                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) timestamps.push(d.getTime()); }
-                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) timestamps.push(d.getTime()); }
-                        (s.tasks || []).forEach(t => {
-                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) timestamps.push(d.getTime()); }
-                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) timestamps.push(d.getTime()); }
+                        mn = new Date();
+                        mx = new Date(mn.getTime() + 30 * 864e5);
+                    } else {
+                        const ts = [];
+                        stages.forEach(s => {
+                            if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
+                            if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
+                            (s.tasks || []).forEach(t => {
+                                if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
+                                if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
+                            });
                         });
-                    });
-
-                    if (timestamps.length === 0) {
-                        const today = new Date();
-                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
+                        if (ts.length === 0) {
+                            mn = new Date();
+                            mx = new Date(mn.getTime() + 30 * 864e5);
+                        } else {
+                            const B = 7 * 864e5;
+                            mn = new Date(Math.min(...ts) - B);
+                            mx = new Date(Math.max(...ts) + B);
+                        }
                     }
 
-                    const BUFFER = 7 * 864e5;
-                    const minDate = new Date(Math.min(...timestamps) - BUFFER);
-                    const maxDate = new Date(Math.max(...timestamps) + BUFFER);
-                    const totalDays = Math.max(1, Math.round((maxDate - minDate) / 864e5));
-                    return { start: minDate, end: maxDate, totalDays };
+                    const scale = ganttScale.value;
+                    let start = new Date(mn);
+                    let end = new Date(mx);
+                    start.setUTCHours(0,0,0,0);
+                    end.setUTCHours(0,0,0,0);
+
+                    if (scale === 'weekly') {
+                        const day = start.getUTCDay();
+                        start.setUTCDate(start.getUTCDate() + (day === 0 ? -6 : 1 - day));
+                        const endDay = end.getUTCDay();
+                        end.setUTCDate(end.getUTCDate() + (endDay === 0 ? 0 : 7 - endDay));
+                    } else if (scale === 'monthly' || scale === 'yearly') {
+                        start.setUTCDate(1);
+                        end.setUTCMonth(end.getUTCMonth() + 1);
+                        end.setUTCDate(0);
+                    }
+
+                    let totalDays = Math.max(1, Math.round((end - start) / 864e5) + 1);
+                    if (totalDays > 1000) {
+                        totalDays = 1000;
+                        end = new Date(start.getTime() + (totalDays - 1) * 864e5);
+                    }
+                    return { start, end, totalDays };
                 });
 
                 // Mirrors GanttService.generateGridColumns — weekly/monthly/yearly column labels.
                 const ganttGridColumns = computed(() => {
-                    const { start, end, totalDays } = projectDateRange.value;
+                    const { start, end } = projectDateRange.value;
                     const cols = [];
                     if (ganttScale.value === 'daily') {
                         let curr = new Date(start);
-                        while (curr <= end && cols.length < 150) {
-                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
-                            curr.setDate(curr.getDate() + 1);
+                        while (curr <= end && cols.length < 1000) {
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 1);
                         }
                     } else if (ganttScale.value === 'weekly') {
-                        let w = 1;
-                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 1000) {
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 7);
+                        }
                     } else {
                         let curr = new Date(start);
-                        while (curr <= end && cols.length < 150) {
-                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
-                            curr.setMonth(curr.getMonth() + 1);
+                        while (curr <= end && cols.length < 1000) {
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }));
+                            curr.setUTCMonth(curr.getUTCMonth() + 1);
                         }
                     }
                     return cols.length > 0 ? cols : ['Timeline'];
@@ -907,7 +932,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     const range = projectDateRange.value;
                     const totalMs = range.totalDays * 864e5;
                     const leftPct  = Math.max(0, Math.min(100, ((start - range.start) / totalMs) * 100));
-                    const widthPct = Math.max(2, Math.min(100 - leftPct, ((end - start) / totalMs) * 100));
+                    const widthPct = Math.max(2, Math.min(100 - leftPct, ((end - start + 864e5) / totalMs) * 100));
                     return { left: leftPct.toFixed(2) + '%', width: widthPct.toFixed(2) + '%' };
                 };
 
@@ -938,39 +963,82 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 const ganttAllDateRange = computed(() => {
                     const all = ganttVisibleProjects.value;
-                    if (!all.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
-                    const ts = [];
-                    all.forEach(p => (p.stages || []).forEach(s => {
-                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
-                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
-                        (s.tasks || []).forEach(t => {
-                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
-                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
-                        });
-                    }));
-                    if (!ts.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
-                    const B = 7 * 864e5;
-                    const mn = new Date(Math.min(...ts) - B), mx = new Date(Math.max(...ts) + B);
-                    return { start: mn, end: mx, totalDays: Math.max(1, Math.round((mx - mn) / 864e5)) };
+                    let mn = null, mx = null;
+                    if (!all.length) {
+                        mn = new Date();
+                        mx = new Date(mn.getTime() + 30*864e5);
+                    } else {
+                        const ts = [];
+                        all.forEach(p => (p.stages || []).forEach(s => {
+                            if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
+                            if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
+                            (s.tasks || []).forEach(t => {
+                                if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
+                                if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
+                            });
+                        }));
+                        if (!ts.length) {
+                            mn = new Date();
+                            mx = new Date(mn.getTime() + 30*864e5);
+                        } else {
+                            const B = 7 * 864e5;
+                            mn = new Date(Math.min(...ts) - B);
+                            mx = new Date(Math.max(...ts) + B);
+                        }
+                    }
+
+                    const scale = ganttScale.value;
+                    let start = new Date(mn);
+                    let end = new Date(mx);
+                    start.setUTCHours(0,0,0,0);
+                    end.setUTCHours(0,0,0,0);
+
+                    if (scale === 'weekly') {
+                        const day = start.getUTCDay();
+                        start.setUTCDate(start.getUTCDate() + (day === 0 ? -6 : 1 - day));
+                        const endDay = end.getUTCDay();
+                        end.setUTCDate(end.getUTCDate() + (endDay === 0 ? 0 : 7 - endDay));
+                    } else if (scale === 'monthly' || scale === 'yearly') {
+                        start.setUTCDate(1);
+                        end.setUTCMonth(end.getUTCMonth() + 1);
+                        end.setUTCDate(0);
+                    }
+
+                    let totalDays = Math.max(1, Math.round((end - start) / 864e5) + 1);
+                    if (totalDays > 1000) {
+                        totalDays = 1000;
+                        end = new Date(start.getTime() + (totalDays - 1) * 864e5);
+                    }
+                    return { start, end, totalDays };
+                });
+
+                const ganttGridMinWidth = computed(() => {
+                    const days = ganttAllDateRange.value.totalDays;
+                    if (ganttScale.value === 'daily') return Math.max(100, days * 25) + 'px';
+                    if (ganttScale.value === 'weekly') return Math.max(100, (days / 7) * 40) + 'px';
+                    return '100%'; 
                 });
 
                 const ganttAllGridColumns = computed(() => {
-                    const { start, end, totalDays } = ganttAllDateRange.value;
+                    const { start, end } = ganttAllDateRange.value;
                     const cols = [];
                     if (ganttScale.value === 'daily') {
                         let curr = new Date(start);
-                        while (curr <= end && cols.length < 150) {
-                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
-                            curr.setDate(curr.getDate() + 1);
+                        while (curr <= end && cols.length < 1000) {
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 1);
                         }
                     } else if (ganttScale.value === 'weekly') {
-                        let w = 1;
-                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 1000) {
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 7);
+                        }
                     } else {
                         let curr = new Date(start);
-                        while (curr <= end && cols.length < 150) {
-                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
-                            curr.setMonth(curr.getMonth() + 1);
+                        while (curr <= end && cols.length < 1000) {
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }));
+                            curr.setUTCMonth(curr.getUTCMonth() + 1);
                         }
                     }
                     return cols.length > 0 ? cols : ['Timeline'];
@@ -982,7 +1050,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     if (!s || !e) return { display: 'none' };
                     const totalMs = range.totalDays * 864e5;
                     const lp = Math.max(0, Math.min(100, ((s - range.start) / totalMs) * 100));
-                    const wp = Math.max(2, Math.min(100 - lp, ((e - s) / totalMs) * 100));
+                    const wp = Math.max(2, Math.min(100 - lp, ((e - s + 864e5) / totalMs) * 100));
                     return { left: lp.toFixed(2) + '%', width: wp.toFixed(2) + '%' };
                 };
 
@@ -994,9 +1062,10 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 // ─── PROJECT VIEWER & EDITOR ──────────────────────────
                 const getStatusColor = (s) => {
-                    if (s === 'COMPLETED')   return 'bg-emerald-500';
-                    if (s === 'IN PROGRESS') return 'bg-blue-500';
-                    if (s === 'STOPPED')     return 'bg-red-500';
+                    if (s === 'COMPLETED' || s === 'Done')   return 'bg-emerald-500';
+                    if (s === 'IN PROGRESS' || s === 'Active') return 'bg-blue-500';
+                    if (s === 'STOPPED' || s === 'Stopped')     return 'bg-red-500';
+                    if (s === 'PENDING' || s === 'Pending')     return 'bg-purple-400';
                     return 'bg-slate-300';
                 };
                 const getStatusCycleColor = (s) => {
@@ -1188,6 +1257,22 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     return Math.max(0, Math.round((end - start) / 864e5));
                 };
 
+                const formatGanttDuration = (s, e) => {
+                    if (!s || !e) return '';
+                    const start = new Date(s + 'T00:00:00Z');
+                    const end   = new Date(e + 'T00:00:00Z');
+                    let days = Math.max(1, Math.round((end - start) / 864e5));
+                    
+                    if (ganttScale.value === 'weekly') {
+                        const w = Math.max(1, Math.round(days / 7));
+                        return w + 'w';
+                    } else if (ganttScale.value === 'monthly' || ganttScale.value === 'yearly') {
+                        const m = Math.max(1, Math.round(days / 30));
+                        return m + 'm';
+                    }
+                    return days + 'd';
+                };
+
                 const addStage = () => {
                     editingObject.value.stages.push({ _localId: generateLocalId(), title: 'NEW PHASE', status: 'PENDING', icon: 'fa-tasks', assignee: '', tasks: [], startDate: '', endDate: '' });
                     activeViewerStage.value = editingObject.value.stages.length - 1;
@@ -1287,12 +1372,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     selectedProjectObj, projectPhaseStatusData, projectPhaseProgress, projectTasksData, chartTitles,
                     chartStatusRef, chartBudgetRef, chartPhaseRef, chartOwnerRef, chartProgressRef,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, filterFolder, filterProject, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, filterProject, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttGridMinWidth, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
-                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
+                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, formatGanttDuration, deleteTemplate, exportView,
                     currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride,
                     quickSaveCycleStatus, toggleTaskAlert, triggerDriveUpload, handleFileInputUpload, driveFileInputRef,
                     logoWhite, logoBlue

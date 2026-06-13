@@ -201,6 +201,19 @@
             pointer-events: none;
         }
 
+        .gantt-container {
+            display: grid;
+            grid-template-columns: minmax(280px, 350px) 1fr;
+            min-width: 100%;
+        }
+        
+        .gantt-sticky-left {
+            position: sticky;
+            left: 0;
+            z-index: 40;
+            background-color: inherit;
+        }
+
         /* ── Drag ── */
         .drag-handle { cursor: grab; }
         .drag-handle:active { cursor: grabbing; }
@@ -852,7 +865,7 @@
                                 {{ ganttVisibleProjects.length }} project{{ ganttVisibleProjects.length !== 1 ? 's' : '' }}
                             </span>
                             <div class="hidden lg:flex items-center gap-2 text-[0.58rem] font-bold text-slate-400">
-                                <span><span class="inline-block w-2 h-2 rounded-full bg-slate-300 mr-0.5 align-middle"></span>Pending</span>
+                                <span><span class="inline-block w-2 h-2 rounded-full bg-purple-400 mr-0.5 align-middle"></span>Pending</span>
                                 <span><span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-0.5 align-middle"></span>Active</span>
                                 <span><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-0.5 align-middle"></span>Done</span>
                                 <span><span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-0.5 align-middle"></span>Stopped</span>
@@ -876,11 +889,12 @@
                     <!-- Gantt chart -->
                     <div v-else class="flex-1 overflow-auto custom-scrollbar" style="background:var(--bg-main)">
                         <div class="p-6">
-                            <div class="bg-white rounded-panel border border-slate-200 overflow-hidden shadow-sm">
+                            <div class="hidden bg-emerald-500 bg-blue-500 bg-red-500 bg-purple-400 bg-slate-300 text-purple-400"></div>
+                            <div class="bg-white rounded-panel border border-slate-200 overflow-x-auto shadow-sm">
 
                                 <!-- Sticky column header -->
-                                <div class="gantt-container border-b-2 border-slate-200 sticky top-0 z-30 bg-slate-50 shadow-sm">
-                                    <div class="p-4 border-r border-slate-200 text-[0.6rem] font-black text-slate-400 uppercase tracking-widest">Phase / Task</div>
+                                <div class="gantt-container border-b-2 border-slate-200 sticky top-0 z-30 bg-slate-50 shadow-sm" :style="{ minWidth: ganttGridMinWidth }">
+                                    <div class="gantt-sticky-left p-4 border-r border-slate-200 text-[0.6rem] font-black text-slate-400 uppercase tracking-widest">Phase / Task</div>
                                     <div class="relative overflow-hidden flex">
                                         <div class="gantt-today-line" :style="getTodayLineStyle(ganttAllDateRange)"></div>
                                         <div v-for="(col, ci) in ganttAllGridColumns" :key="'ghc-'+ci"
@@ -894,8 +908,8 @@
                                 <template v-for="(proj, pIdx) in ganttVisibleProjects" :key="'gp-'+proj.id">
 
                                     <!-- Project group header -->
-                                    <div class="gantt-container border-b-2 border-slate-200">
-                                        <div class="px-3 py-2.5 border-r border-slate-200 bg-slate-50/90 flex items-center gap-2.5">
+                                    <div class="gantt-container border-b-2 border-slate-200 bg-white" :style="{ minWidth: ganttGridMinWidth }">
+                                        <div class="gantt-sticky-left px-3 py-2.5 border-r border-slate-200 bg-slate-50 flex items-center gap-2.5">
                                             <span :class="['w-2.5 h-2.5 rounded-full shrink-0 shadow-sm', getProjectColor(pIdx)]"></span>
                                             <div class="min-w-0">
                                                 <p class="text-[0.68rem] font-black text-slate-800 truncate uppercase leading-tight" :title="proj.title">{{ proj.title }}</p>
@@ -923,15 +937,15 @@
 
                                     <!-- Phase rows -->
                                     <template v-for="(stage, sIdx) in (proj.stages || [])" :key="'gs-'+proj.id+'-'+sIdx">
-                                        <div class="gantt-container border-b border-slate-100 hover:bg-blue-50/10 transition-all bg-white">
-                                            <div class="p-2.5 pl-5 border-r border-slate-100 flex items-center gap-2">
+                                        <div class="gantt-container border-b border-slate-100 hover:bg-slate-50 transition-all bg-white" :style="{ minWidth: ganttGridMinWidth }">
+                                            <div class="gantt-sticky-left p-2.5 pl-5 border-r border-slate-100 flex items-center gap-2 bg-white">
                                                 <span :class="['w-1.5 h-5 rounded-sm shrink-0', getProjectColor(pIdx)]"></span>
                                                 <div :class="['w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm shrink-0', getStatusColor(stage.status)]">
                                                     <i :class="['fas text-[0.45rem]', stage.icon || 'fa-tasks']"></i>
                                                 </div>
                                                 <div class="min-w-0">
                                                     <p class="text-[0.65rem] font-bold text-slate-700 truncate uppercase" :title="stage.title">{{ stage.title }}</p>
-                                                    <p class="text-[0.52rem] text-slate-400 font-semibold">{{ stage.status }} · {{ calculateDays(stage.startDate, stage.endDate) }}d</p>
+                                                    <p class="text-[0.52rem] text-slate-400 font-semibold">{{ stage.status }} · {{ formatGanttDuration(stage.startDate, stage.endDate) }}</p>
                                                 </div>
                                             </div>
                                             <div class="relative overflow-hidden" style="height:44px">
@@ -942,7 +956,7 @@
                                                 <div :class="['gantt-bar flex items-center justify-between px-2 border-b-2 border-black/10 shadow-sm', getStatusColor(stage.status)]"
                                                      :style="getGanttAllBarStyle(stage, ganttAllDateRange)">
                                                     <span class="text-[0.5rem] font-bold text-white uppercase truncate leading-none">{{ stage.assignee || stage.title }}</span>
-                                                    <span class="text-[0.48rem] font-bold text-white/70 whitespace-nowrap ml-1 shrink-0">{{ calculateDays(stage.startDate, stage.endDate) }}d</span>
+                                                    <span class="text-[0.48rem] font-bold text-white/70 whitespace-nowrap ml-1 shrink-0">{{ formatGanttDuration(stage.startDate, stage.endDate) }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -950,8 +964,8 @@
                                         <!-- Task rows: always in single mode; in all-mode only when ≤3 projects -->
                                         <template v-if="ganttViewMode === 'single' || ganttVisibleProjects.length <= 3">
                                             <div v-for="(task, tIdx) in (stage.tasks || [])" :key="'gt-'+proj.id+'-'+sIdx+'-'+tIdx"
-                                                 class="gantt-container border-b border-slate-50 bg-slate-50/30 hover:bg-slate-50 transition-all">
-                                                <div class="py-2 pr-3 pl-9 border-r border-slate-100 flex items-center gap-1.5">
+                                                 class="gantt-container border-b border-slate-50 bg-slate-50 hover:bg-slate-100 transition-all" :style="{ minWidth: ganttGridMinWidth }">
+                                                <div class="gantt-sticky-left py-2 pr-3 pl-9 border-r border-slate-100 flex items-center gap-1.5 bg-slate-50">
                                                     <i class="fas fa-level-up-alt rotate-90 text-slate-300 text-[0.48rem] shrink-0"></i>
                                                     <div :class="['w-3 h-3 rounded-full border-2 shrink-0 flex items-center justify-center', task.done ? 'bg-emerald-400 border-emerald-400' : 'border-slate-300']">
                                                         <i v-if="task.done" class="fas fa-check text-white" style="font-size:0.3rem"></i>
@@ -967,7 +981,7 @@
                                                     <div v-if="task.startDate && task.endDate"
                                                          :class="['gantt-bar flex items-center px-1 border shadow-sm !h-[10px]', task.done ? 'bg-emerald-100 border-emerald-300' : 'bg-slate-100 border-slate-300']"
                                                          :style="getGanttAllBarStyle(task, ganttAllDateRange)">
-                                                        <span :class="['text-[0.44rem] font-bold uppercase whitespace-nowrap truncate', task.done ? 'text-emerald-600' : 'text-slate-500']">{{ calculateDays(task.startDate, task.endDate) }}d</span>
+                                                        <span :class="['text-[0.44rem] font-bold uppercase whitespace-nowrap truncate', task.done ? 'text-emerald-600' : 'text-slate-500']">{{ formatGanttDuration(task.startDate, task.endDate) }}</span>
                                                     </div>
                                                     <span v-else class="absolute left-2 top-1/2 -translate-y-1/2 text-[0.5rem] text-slate-200 italic">—</span>
                                                 </div>
@@ -2918,51 +2932,76 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 // picks min/max, then adds a 7-day buffer on each side.
                 const projectDateRange = computed(() => {
                     const stages = selectedProject.value?.stages;
+                    let mn = null, mx = null;
                     if (!stages || stages.length === 0) {
-                        const today = new Date();
-                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
-                    }
-
-                    const timestamps = [];
-                    stages.forEach(s => {
-                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) timestamps.push(d.getTime()); }
-                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) timestamps.push(d.getTime()); }
-                        (s.tasks || []).forEach(t => {
-                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) timestamps.push(d.getTime()); }
-                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) timestamps.push(d.getTime()); }
+                        mn = new Date();
+                        mx = new Date(mn.getTime() + 30 * 864e5);
+                    } else {
+                        const ts = [];
+                        stages.forEach(s => {
+                            if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
+                            if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
+                            (s.tasks || []).forEach(t => {
+                                if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
+                                if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
+                            });
                         });
-                    });
-
-                    if (timestamps.length === 0) {
-                        const today = new Date();
-                        return { start: today, end: new Date(today.getTime() + 30 * 864e5), totalDays: 30 };
+                        if (ts.length === 0) {
+                            mn = new Date();
+                            mx = new Date(mn.getTime() + 30 * 864e5);
+                        } else {
+                            const B = 7 * 864e5;
+                            mn = new Date(Math.min(...ts) - B);
+                            mx = new Date(Math.max(...ts) + B);
+                        }
                     }
 
-                    const BUFFER = 7 * 864e5;
-                    const minDate = new Date(Math.min(...timestamps) - BUFFER);
-                    const maxDate = new Date(Math.max(...timestamps) + BUFFER);
-                    const totalDays = Math.max(1, Math.round((maxDate - minDate) / 864e5));
-                    return { start: minDate, end: maxDate, totalDays };
+                    const scale = ganttScale.value;
+                    let start = new Date(mn);
+                    let end = new Date(mx);
+                    start.setUTCHours(0,0,0,0);
+                    end.setUTCHours(0,0,0,0);
+
+                    if (scale === 'weekly') {
+                        const day = start.getUTCDay();
+                        start.setUTCDate(start.getUTCDate() + (day === 0 ? -6 : 1 - day));
+                        const endDay = end.getUTCDay();
+                        end.setUTCDate(end.getUTCDate() + (endDay === 0 ? 0 : 7 - endDay));
+                    } else if (scale === 'monthly' || scale === 'yearly') {
+                        start.setUTCDate(1);
+                        end.setUTCMonth(end.getUTCMonth() + 1);
+                        end.setUTCDate(0);
+                    }
+
+                    let totalDays = Math.max(1, Math.round((end - start) / 864e5) + 1);
+                    if (totalDays > 1000) {
+                        totalDays = 1000;
+                        end = new Date(start.getTime() + (totalDays - 1) * 864e5);
+                    }
+                    return { start, end, totalDays };
                 });
 
                 // Mirrors GanttService.generateGridColumns — weekly/monthly/yearly column labels.
                 const ganttGridColumns = computed(() => {
-                    const { start, end, totalDays } = projectDateRange.value;
+                    const { start, end } = projectDateRange.value;
                     const cols = [];
                     if (ganttScale.value === 'daily') {
                         let curr = new Date(start);
                         while (curr <= end && cols.length < 150) {
-                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
-                            curr.setDate(curr.getDate() + 1);
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 1);
                         }
                     } else if (ganttScale.value === 'weekly') {
-                        let w = 1;
-                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 7);
+                        }
                     } else {
                         let curr = new Date(start);
                         while (curr <= end && cols.length < 150) {
-                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
-                            curr.setMonth(curr.getMonth() + 1);
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }));
+                            curr.setUTCMonth(curr.getUTCMonth() + 1);
                         }
                     }
                     return cols.length > 0 ? cols : ['Timeline'];
@@ -2978,7 +3017,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     const range = projectDateRange.value;
                     const totalMs = range.totalDays * 864e5;
                     const leftPct  = Math.max(0, Math.min(100, ((start - range.start) / totalMs) * 100));
-                    const widthPct = Math.max(2, Math.min(100 - leftPct, ((end - start) / totalMs) * 100));
+                    const widthPct = Math.max(2, Math.min(100 - leftPct, ((end - start + 864e5) / totalMs) * 100));
                     return { left: leftPct.toFixed(2) + '%', width: widthPct.toFixed(2) + '%' };
                 };
 
@@ -3009,39 +3048,75 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 const ganttAllDateRange = computed(() => {
                     const all = ganttVisibleProjects.value;
-                    if (!all.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
-                    const ts = [];
-                    all.forEach(p => (p.stages || []).forEach(s => {
-                        if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
-                        if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
-                        (s.tasks || []).forEach(t => {
-                            if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
-                            if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
-                        });
-                    }));
-                    if (!ts.length) { const t = new Date(); return { start: t, end: new Date(t.getTime() + 30*864e5), totalDays: 30 }; }
-                    const B = 7 * 864e5;
-                    const mn = new Date(Math.min(...ts) - B), mx = new Date(Math.max(...ts) + B);
-                    return { start: mn, end: mx, totalDays: Math.max(1, Math.round((mx - mn) / 864e5)) };
+                    let mn = null, mx = null;
+                    if (!all.length) {
+                        mn = new Date();
+                        mx = new Date(mn.getTime() + 30*864e5);
+                    } else {
+                        const ts = [];
+                        all.forEach(p => (p.stages || []).forEach(s => {
+                            if (s.startDate) { const d = ganttParseDate(s.startDate); if (d) ts.push(d.getTime()); }
+                            if (s.endDate)   { const d = ganttParseDate(s.endDate);   if (d) ts.push(d.getTime()); }
+                            (s.tasks || []).forEach(t => {
+                                if (t.startDate) { const d = ganttParseDate(t.startDate); if (d) ts.push(d.getTime()); }
+                                if (t.endDate)   { const d = ganttParseDate(t.endDate);   if (d) ts.push(d.getTime()); }
+                            });
+                        }));
+                        if (!ts.length) {
+                            mn = new Date();
+                            mx = new Date(mn.getTime() + 30*864e5);
+                        } else {
+                            const B = 7 * 864e5;
+                            mn = new Date(Math.min(...ts) - B);
+                            mx = new Date(Math.max(...ts) + B);
+                        }
+                    }
+
+                    const scale = ganttScale.value;
+                    let start = new Date(mn);
+                    let end = new Date(mx);
+                    start.setUTCHours(0,0,0,0);
+                    end.setUTCHours(0,0,0,0);
+
+                    if (scale === 'weekly') {
+                        const day = start.getUTCDay();
+                        start.setUTCDate(start.getUTCDate() + (day === 0 ? -6 : 1 - day));
+                        const endDay = end.getUTCDay();
+                        end.setUTCDate(end.getUTCDate() + (endDay === 0 ? 0 : 7 - endDay));
+                    } else if (scale === 'monthly' || scale === 'yearly') {
+                        start.setUTCDate(1);
+                        end.setUTCMonth(end.getUTCMonth() + 1);
+                        end.setUTCDate(0);
+                    }
+
+                    let totalDays = Math.max(1, Math.round((end - start) / 864e5) + 1);
+                    if (totalDays > 1000) {
+                        totalDays = 1000;
+                        end = new Date(start.getTime() + (totalDays - 1) * 864e5);
+                    }
+                    return { start, end, totalDays };
                 });
 
                 const ganttAllGridColumns = computed(() => {
-                    const { start, end, totalDays } = ganttAllDateRange.value;
+                    const { start, end } = ganttAllDateRange.value;
                     const cols = [];
                     if (ganttScale.value === 'daily') {
                         let curr = new Date(start);
                         while (curr <= end && cols.length < 150) {
-                            cols.push(curr.getDate() + '/' + (curr.getMonth()+1));
-                            curr.setDate(curr.getDate() + 1);
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 1);
                         }
                     } else if (ganttScale.value === 'weekly') {
-                        let w = 1;
-                        for (let i = 0; i < totalDays && cols.length < 150; i += 7) cols.push('W' + w++);
+                        let curr = new Date(start);
+                        while (curr <= end && cols.length < 150) {
+                            cols.push(curr.getUTCDate() + '/' + (curr.getUTCMonth()+1));
+                            curr.setUTCDate(curr.getUTCDate() + 7);
+                        }
                     } else {
                         let curr = new Date(start);
                         while (curr <= end && cols.length < 150) {
-                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
-                            curr.setMonth(curr.getMonth() + 1);
+                            cols.push(curr.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }));
+                            curr.setUTCMonth(curr.getUTCMonth() + 1);
                         }
                     }
                     return cols.length > 0 ? cols : ['Timeline'];
@@ -3053,7 +3128,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     if (!s || !e) return { display: 'none' };
                     const totalMs = range.totalDays * 864e5;
                     const lp = Math.max(0, Math.min(100, ((s - range.start) / totalMs) * 100));
-                    const wp = Math.max(2, Math.min(100 - lp, ((e - s) / totalMs) * 100));
+                    const wp = Math.max(2, Math.min(100 - lp, ((e - s + 864e5) / totalMs) * 100));
                     return { left: lp.toFixed(2) + '%', width: wp.toFixed(2) + '%' };
                 };
 
@@ -3223,6 +3298,22 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     return Math.max(0, Math.round((end - start) / 864e5));
                 };
 
+                const formatGanttDuration = (s, e) => {
+                    if (!s || !e) return '';
+                    const start = new Date(s + 'T00:00:00Z');
+                    const end   = new Date(e + 'T00:00:00Z');
+                    let days = Math.max(1, Math.round((end - start) / 864e5));
+                    
+                    if (ganttScale.value === 'weekly') {
+                        const w = Math.max(1, Math.round(days / 7));
+                        return w + 'w';
+                    } else if (ganttScale.value === 'monthly' || ganttScale.value === 'yearly') {
+                        const m = Math.max(1, Math.round(days / 30));
+                        return m + 'm';
+                    }
+                    return days + 'd';
+                };
+
                 const addStage = () => {
                     editingObject.value.stages.push({ _localId: generateLocalId(), title: 'NEW PHASE', status: 'PENDING', icon: 'fa-tasks', assignee: '', tasks: [], startDate: '', endDate: '' });
                     activeViewerStage.value = editingObject.value.stages.length - 1;
@@ -3327,7 +3418,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
-                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, deleteTemplate, exportView,
+                    calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, formatGanttDuration, deleteTemplate, exportView,
                     currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride,
                     logoWhite, logoBlue
                 };
