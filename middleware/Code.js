@@ -31,7 +31,7 @@ function setupDatabase() {
         'members', 'externalTeam', 'stages', 'finances',
         'detail', 'reason', 'generalComments', 'icon',
         'driveFolderId', 'driveRootUrl', 'webhookUrl',
-        'createdAt', 'updatedAt'
+        'createdAt', 'updatedAt', 'ownerEmail', 'collaboratorEmails'
       ],
       Templates: ['id', 'name', 'category', 'stages', 'createdAt'],
       Folders:   ['id', 'projectId', 'name', 'driveFolderId', 'createdAt'],
@@ -148,7 +148,9 @@ function _deserializeProject(row) {
     driveRootUrl:    row[17] || '',
     webhookUrl:      row[18] || '',
     createdAt:       row[19] || '',
-    updatedAt:       row[20] || ''
+    updatedAt:       row[20] || '',
+    ownerEmail:      row[21] || '',
+    collaboratorEmails: _tryParse(row[22], [])
   };
 }
 
@@ -230,7 +232,9 @@ function saveProject(project) {
       project.driveRootUrl    || '',
       project.webhookUrl      || project.chatWebhook || '',
       project.createdAt       || '',
-      project.updatedAt       || ''
+      project.updatedAt       || '',
+      project.ownerEmail      || '',
+      JSON.stringify(project.collaboratorEmails || [])
     ];
 
     const existing = sheetRepo.findRow('Projects', project.id, 0);
@@ -257,6 +261,49 @@ function saveProject(project) {
  */
 function saveProjectToSheet(project) {
   try {
+    const sheetRepo = new SheetRepository();
+    const existing = sheetRepo.findRow('Projects', project.id, 0);
+    
+    if (existing) {
+      const oldProject = _deserializeProject(existing.data);
+      const email = Session.getActiveUser().getEmail();
+      const isOwner = oldProject.ownerEmail === email;
+      const isCollaborator = isOwner || (oldProject.collaboratorEmails || []).includes(email);
+      
+      if (!isCollaborator) {
+        throw new Error('You must be a collaborator to modify this project.');
+      }
+      
+      if (!isOwner) {
+        // Enforce that only stages and tasks can change
+        // Revert all other fields to oldProject's values
+        project.code = oldProject.code;
+        project.title = oldProject.title;
+        project.folder = oldProject.folder;
+        project.category = oldProject.category;
+        project.cycleStatus = oldProject.cycleStatus;
+        project.archived = oldProject.archived;
+        project.projectOwner = oldProject.projectOwner;
+        project.members = oldProject.members;
+        project.externalTeam = oldProject.externalTeam;
+        project.finances = oldProject.finances;
+        project.detail = oldProject.detail;
+        project.reason = oldProject.reason;
+        project.generalComments = oldProject.generalComments;
+        project.icon = oldProject.icon;
+        project.driveFolderId = oldProject.driveFolderId;
+        project.driveRootUrl = oldProject.driveRootUrl;
+        project.webhookUrl = oldProject.webhookUrl;
+        project.chatWebhook = oldProject.webhookUrl;
+        project.createdAt = oldProject.createdAt;
+        project.ownerEmail = oldProject.ownerEmail;
+        project.collaboratorEmails = oldProject.collaboratorEmails;
+      }
+    } else {
+      // New project
+      project.ownerEmail = Session.getActiveUser().getEmail();
+    }
+
     if (project.chatWebhook !== undefined) {
       saveChatWebhookUrl(project.chatWebhook);
     }
@@ -315,6 +362,13 @@ function deleteProjectFromSheet(projectId) {
     const sheetRepo = new SheetRepository();
     const existing = sheetRepo.findRow('Projects', projectId, 0);
     if (!existing) return { success: false, error: 'Project not found' };
+    
+    const oldProject = _deserializeProject(existing.data);
+    const email = Session.getActiveUser().getEmail();
+    if (oldProject.ownerEmail !== email) {
+      throw new Error('Only the Project Owner can perform this action.');
+    }
+
     sheetRepo.deleteRow('Projects', existing.rowIndex);
     Logger.log(`✅ Proyecto eliminado: ${projectId}`);
     return { success: true };
