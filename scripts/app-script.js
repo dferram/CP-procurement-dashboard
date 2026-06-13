@@ -865,9 +865,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30 * 864e5);
                         } else {
-                            const B = 7 * 864e5;
-                            mn = new Date(Math.min(...ts) - B);
-                            mx = new Date(Math.max(...ts) + B);
+                            const endBuffer = 3 * 864e5;
+                            mn = new Date(Math.min(...ts));
+                            mx = new Date(Math.max(...ts) + endBuffer);
                         }
                     }
 
@@ -981,9 +981,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30*864e5);
                         } else {
-                            const B = 7 * 864e5;
-                            mn = new Date(Math.min(...ts) - B);
-                            mx = new Date(Math.max(...ts) + B);
+                            const endBuffer = 3 * 864e5;
+                            mn = new Date(Math.min(...ts));
+                            mx = new Date(Math.max(...ts) + endBuffer);
                         }
                     }
 
@@ -1014,9 +1014,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 const ganttGridMinWidth = computed(() => {
                     const days = ganttAllDateRange.value.totalDays;
-                    if (ganttScale.value === 'daily') return Math.max(100, days * 25) + 'px';
-                    if (ganttScale.value === 'weekly') return Math.max(100, (days / 7) * 40) + 'px';
-                    return '100%'; 
+                    if (ganttScale.value === 'daily') return Math.max(100, days * 60) + 'px';
+                    if (ganttScale.value === 'weekly') return Math.max(100, (days / 7) * 120) + 'px';
+                    return Math.max(100, (days / 30) * 150) + 'px'; 
                 });
 
                 const ganttAllGridColumns = computed(() => {

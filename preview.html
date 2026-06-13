@@ -2950,9 +2950,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30 * 864e5);
                         } else {
-                            const B = 7 * 864e5;
-                            mn = new Date(Math.min(...ts) - B);
-                            mx = new Date(Math.max(...ts) + B);
+                            const endBuffer = 3 * 864e5;
+                            mn = new Date(Math.min(...ts));
+                            mx = new Date(Math.max(...ts) + endBuffer);
                         }
                     }
 
@@ -3066,9 +3066,9 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30*864e5);
                         } else {
-                            const B = 7 * 864e5;
-                            mn = new Date(Math.min(...ts) - B);
-                            mx = new Date(Math.max(...ts) + B);
+                            const endBuffer = 3 * 864e5;
+                            mn = new Date(Math.min(...ts));
+                            mx = new Date(Math.max(...ts) + endBuffer);
                         }
                     }
 
@@ -3095,6 +3095,13 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         end = new Date(start.getTime() + (totalDays - 1) * 864e5);
                     }
                     return { start, end, totalDays };
+                });
+
+                const ganttGridMinWidth = computed(() => {
+                    const days = ganttAllDateRange.value.totalDays;
+                    if (ganttScale.value === 'daily') return Math.max(100, days * 60) + 'px';
+                    if (ganttScale.value === 'weekly') return Math.max(100, (days / 7) * 120) + 'px';
+                    return Math.max(100, (days / 30) * 150) + 'px'; 
                 });
 
                 const ganttAllGridColumns = computed(() => {
@@ -3140,9 +3147,10 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 // ─── PROJECT VIEWER & EDITOR ──────────────────────────
                 const getStatusColor = (s) => {
-                    if (s === 'COMPLETED')   return 'bg-emerald-500';
-                    if (s === 'IN PROGRESS') return 'bg-blue-500';
-                    if (s === 'STOPPED')     return 'bg-red-500';
+                    if (s === 'COMPLETED' || s === 'Done')   return 'bg-emerald-500';
+                    if (s === 'IN PROGRESS' || s === 'Active') return 'bg-blue-500';
+                    if (s === 'STOPPED' || s === 'Stopped')     return 'bg-red-500';
+                    if (s === 'PENDING' || s === 'Pending')     return 'bg-purple-400';
                     return 'bg-slate-300';
                 };
                 const getStatusCycleColor = (s) => {
@@ -3413,7 +3421,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     selectedProjectObj, projectPhaseStatusData, projectPhaseProgress, projectTasksData, chartTitles,
                     chartStatusRef, chartBudgetRef, chartPhaseRef, chartOwnerRef, chartProgressRef,
                     newCpMember, newExternalMember, newSuggestion, saveConfig, addTeamMember, removeTeamMember, addSuggestedPhase, removeSuggestedPhase,
-                    filterStatus, filterOwner, filterFolder, filterProject, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
+                    filterStatus, filterOwner, filterFolder, filterProject, sortBy, ganttScale, ganttGridColumns, ganttProjectId, ganttViewMode, ganttFilterCategory, ganttFilterOwner, ganttFilterStatus, ganttVisibleProjects, ganttCategories, ganttOwners, ganttAllDateRange, ganttGridMinWidth, ganttAllGridColumns, getGanttAllBarStyle, getProjectColor, getTodayLineStyle, projectsByFolder, folderState, customFolders, toggleFolder, createNewFolder, deleteFolder, handleMoveFolder, getProjectAlerts, getFolderKPI,
                     dialog, dialogConfirm, dialogCancel,
                     phasesSortableRef, tasksSortableRef, toggleDictation, isDictating, dictationState, toast, showToast, sendChat,
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
