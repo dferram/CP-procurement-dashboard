@@ -14,16 +14,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const toast = ref({ show: false, message: '', type: 'success' });
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
-                const currentUserEmail = ref('');
-                const userInitials = computed(() => {
-                    if(!currentUserEmail.value) return '';
-                    let namePart = currentUserEmail.value.split('@')[0];
-                    namePart = namePart.replace(/^bp_/, '');
-                    const parts = namePart.split(/[._-]/).filter(p => p.length > 0);
-                    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-                    if(namePart.length >= 2) return namePart.substring(0, 2).toUpperCase();
-                    return namePart.charAt(0).toUpperCase();
-                });
+                const { currentUserEmail, userInitials, isOwnerCheck, isCollaboratorCheck } = useAuth();
                 // ─── BRAND LOGOS (injected by index.html via GAS scriptlet) ──
                 const logoWhite = ref(typeof LOGO_WHITE_URL !== 'undefined' ? LOGO_WHITE_URL : '');
                 const logoBlue  = ref(typeof LOGO_BLUE_URL  !== 'undefined' ? LOGO_BLUE_URL  : '');
@@ -1182,18 +1173,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     });
                 };
 
-                const isOwnerCheck = (proj) => {
-                    if (!proj) return false;
-                    if (!currentUserEmail.value) return true; // Local fallback
-                    return proj.ownerEmail === currentUserEmail.value;
-                };
-
-                const isCollaboratorCheck = (proj) => {
-                    if (!proj) return false;
-                    if (isOwnerCheck(proj)) return true;
-                    if (!currentUserEmail.value) return true; // Local fallback
-                    return (proj.collaboratorEmails || []).includes(currentUserEmail.value);
-                };
+                // Auth methods extracted to useAuth()
 
                 // Called when the Project Owner confirms a manual override from the detail view.
                 const overridePhaseStatus = (stage, proj) => {
