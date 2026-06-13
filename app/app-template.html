@@ -675,7 +675,7 @@
                                 <span><span class="inline-block w-4 h-0.5 bg-[var(--cp-red)] opacity-60 mr-0.5 align-middle"></span>Today</span>
                             </div>
                             <div class="cp-toggle flex">
-                                <button v-for="sc in ['Weekly','Monthly','Yearly']" :key="sc"
+                                <button v-for="sc in ['Daily','Weekly','Monthly']" :key="sc"
                                         @click="ganttScale = sc.toLowerCase()"
                                         :class="['cp-toggle-btn text-[0.65rem] uppercase', ganttScale === sc.toLowerCase() ? 'cp-toggle-btn-active' : '']">{{ sc }}</button>
                             </div>
