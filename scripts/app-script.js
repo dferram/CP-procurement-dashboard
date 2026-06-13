@@ -1062,13 +1062,20 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     Object.keys(widgetChartInstances).forEach(k => {
                         if (widgetChartInstances[k]) { widgetChartInstances[k].destroy(); delete widgetChartInstances[k]; }
                     });
+                    
+                    if (typeof Chart !== 'undefined' && Chart.instances) {
+                        for (let id in Chart.instances) {
+                            if (Chart.instances[id]) Chart.instances[id].destroy();
+                        }
+                    }
                 };
 
                 // Renders a single widget's chart on its canvas element
                 const renderWidgetChart = (widget) => {
-                    const canvasEl = document.getElementById('widget-canvas-' + widget.id);
+                    const canvasId = 'widget-canvas-' + widget.id;
+                    const canvasEl = document.getElementById(canvasId);
                     if (!canvasEl) return;
-                    const existingChart = Chart.getChart(canvasEl);
+                    const existingChart = Chart.getChart(canvasId);
                     if (existingChart) existingChart.destroy();
                     if (widgetChartInstances[widget.id]) { widgetChartInstances[widget.id].destroy(); }
                     const data = computeChartData(widget);
@@ -1113,7 +1120,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         const canvasRef = document.getElementById(canvasId);
                         if (!canvasRef) return;
 
-                        const existingChart = Chart.getChart(canvasRef);
+                        const existingChart = Chart.getChart(canvasId);
                         if (existingChart) existingChart.destroy();
                         
                         let rawVal = parseFloat(String(computeKpiValue(widget)).replace(/[^0-9.-]+/g,"")) || 0;
@@ -1162,10 +1169,24 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                         if (!canvasRef) return; // Canvas not found (could be v-if'd out)
                         
-                        const existingChart = Chart.getChart(canvasRef);
+                        const existingChart = Chart.getChart(canvasId);
                         if (existingChart) existingChart.destroy();
 
-                        let field = widget.config?.field || widget.id;
+                        let field = widget.config?.field || widget.id.replace('chart-', '');
+                        
+                        if (widget.config?.groupBy) {
+                            const groupMap = {
+                                'cycleStatus': 'status',
+                                'folder': 'budget',
+                                'projectOwner': 'owner',
+                                'currentPhase': 'phase',
+                                'projectProgress': 'progress'
+                            };
+                            field = groupMap[widget.config.groupBy] || field;
+                        }
+
+                        if (field === 'prog') field = 'progress';
+
                         const validChartFields = ['status', 'budget', 'phase', 'owner', 'progress'];
                         if (!validChartFields.includes(field)) field = 'status';
                         
