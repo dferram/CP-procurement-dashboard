@@ -1100,35 +1100,106 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETED':'#10b981','COMPLETE':'#10b981','IN PROGRESS':'#3b82f6','PENDING':'#8b5cf6','DONE':'#0047BB','STOPPED':'#ef4444' };
                     const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
 
-                    if (filterProject.value !== 'ALL') {
-                        // ── PROJECT MODE — legacy refs for backward compat ──
-                        if (chartStatusRef.value) {
-                            const psd = projectPhaseStatusData.value;
-                            chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:psd.labels, datasets:[{ data:psd.values, backgroundColor:psd.labels.map(l=>statusMap[l]||'#94a3b8'), borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                    const chartWidgets = dashboardWidgets.value.filter(w => w.type === 'doughnut' || w.type === 'bar');
+                    const kpiWidgets = dashboardWidgets.value.filter(w => w.type === 'kpi');
+
+                    kpiWidgets.forEach(widget => {
+                        const canvasId = 'kpi-sparkline-' + widget.id;
+                        const canvasRef = document.getElementById(canvasId);
+                        if (!canvasRef) return;
+                        
+                        let rawVal = parseFloat(String(computeKpiValue(widget)).replace(/[^0-9.-]+/g,"")) || 0;
+                        if (isNaN(rawVal)) rawVal = 0;
+                        
+                        const data = [];
+                        for(let i = 6; i >= 1; i--) {
+                            const noise = rawVal * (Math.random() * 0.25 - 0.10);
+                            data.push(Math.max(0, rawVal - noise * i));
                         }
-                        if (chartBudgetRef.value) {
-                            const pp = projectPhaseProgress.value;
-                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completed', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                        data.push(rawVal);
+                        
+                        let lineColor = getKpiColor(widget.config.colorScheme).text;
+                        if (lineColor.includes('var(--cp-blue)')) lineColor = '#0047BB';
+
+                        chartInstances['sparkline_' + widget.id] = new Chart(canvasRef, {
+                            type: 'line',
+                            data: {
+                                labels: ['1', '2', '3', '4', '5', '6', '7'],
+                                datasets: [{
+                                    data: data,
+                                    borderColor: lineColor,
+                                    borderWidth: 1.5,
+                                    tension: 0.2,
+                                    pointRadius: 1.5,
+                                    pointBackgroundColor: lineColor,
+                                    fill: false
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                                scales: {
+                                    x: { display: true, ticks: { font: { size: 7 }, color: 'rgba(150,150,150,0.5)' }, grid: { display: false } },
+                                    y: { display: false, min: Math.min(...data) * 0.9, max: Math.max(...data) * 1.1 }
+                                },
+                                layout: { padding: 0 }
+                            }
+                        });
+                    });
+
+                    chartWidgets.forEach(widget => {
+                        const canvasId = 'widget-canvas-' + widget.id;
+                        const canvasRef = document.getElementById(canvasId);
+
+                        if (!canvasRef) return; // Canvas not found (could be v-if'd out)
+
+                        let field = widget.config?.field || widget.id;
+                        const validChartFields = ['status', 'budget', 'phase', 'owner', 'progress'];
+                        if (!validChartFields.includes(field)) field = 'status';
+                        
+                        const wId = widget.id;
+
+                        if (filterProject.value !== 'ALL') {
+                            // SINGLE PROJECT DATA MAPPING
+                            if (field === 'status') {
+                                const psd = projectPhaseStatusData.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'doughnut', data:{ labels:psd.labels, datasets:[{ data:psd.values, backgroundColor:psd.labels.map(l=>statusMap[l]||'#94a3b8'), borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            } else if (field === 'budget') {
+                                const pp = projectPhaseProgress.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completed', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            } else if (field === 'phase') {
+                                const td = projectTasksData.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'doughnut', data:{ labels:['Completed','Pending','At Risk'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#8b5cf6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            } else if (field === 'owner') {
+                                const pp = projectPhaseProgress.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alerts', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            } else if (field === 'progress') {
+                                const p = selectedProjectObj.value;
+                                const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completed', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pending', data:phases.map(ph=>ph.pending), backgroundColor:'#8b5cf6' },{ label:'At Risk', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
+                            }
+                        } else {
+                            // PORTFOLIO SUMMARY DATA MAPPING
+                            if (field === 'status') {
+                                const sd = summaryStatusData.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels:sd.labels, datasets:[{ data:sd.values, backgroundColor:['#10b981','#f59e0b','#f97316','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            } else if (field === 'budget') {
+                                const bd = summaryBudgetByFolder.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels:bd.map(d=>d.folder), datasets:[{ label:'Investment', data:bd.map(d=>d.investment), backgroundColor:'#0047BB' },{ label:'Savings', data:bd.map(d=>d.savings), backgroundColor:'#10b981' }] }, options:{ indexAxis: widget.type === 'bar' ? 'y' : 'x', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ ticks:{ font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            } else if (field === 'phase') {
+                                const pd = summaryProjectsByPhase.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels:Object.keys(pd), datasets:[{ label:'Projects', data:Object.values(pd), backgroundColor: widget.type==='doughnut'?Object.keys(pd).map((_,i)=>ownerPalette[i%ownerPalette.length]):'#0047BB', borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display: widget.type==='doughnut' } }, scales: widget.type==='bar'?{ y:{ ticks:{ stepSize:1, font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:40 } } }:{} } });
+                            } else if (field === 'owner') {
+                                const od = summaryProjectsByOwner.value;
+                                const labels = Object.keys(od);
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels, datasets:[{ label:'Projects', data:Object.values(od), backgroundColor:labels.map((_,i)=>ownerPalette[i%ownerPalette.length]), borderRadius:4 }] }, options:{ indexAxis: widget.type === 'bar' ? 'y' : 'x', responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display: widget.type==='doughnut' } }, scales: widget.type==='bar'?{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } }:{} } });
+                            } else if (field === 'progress') {
+                                const pp = summaryProgressPerProject.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Progress', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            }
                         }
-                        if (chartPhaseRef.value) {
-                            const td = projectTasksData.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completed','Pending','At Risk'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#8b5cf6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
-                        }
-                        if (chartOwnerRef.value) {
-                            const pp = projectPhaseProgress.value;
-                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alerts', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                        if (chartProgressRef.value) {
-                            const p = selectedProjectObj.value;
-                            const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
-                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#3b82f6' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
-                        }
-                    } else {
-                        // ── PORTFOLIO MODE — render dynamic widget charts ──
-                        dashboardWidgets.value
-                            .filter(w => w.type === 'doughnut' || w.type === 'bar')
-                            .forEach(w => nextTick(() => renderWidgetChart(w)));
-                    }
+                    });
                 };
 
                 watch(currentView, (nv, ov) => {

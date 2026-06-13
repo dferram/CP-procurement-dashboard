@@ -237,7 +237,14 @@
                                         <div v-if="widget.config.format === 'percentage'" class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
                                             <div class="h-full rounded" style="transition:width 0.5s" :style="{ width: computeKpiValue(widget) + '%', background: getKpiColor(widget.config.colorScheme).text }"></div>
                                         </div>
-                                        <p v-else class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ getKpiSubtext(widget) }}</p>
+                                        <div v-else-if="getKpiSubtext(widget)" class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">
+                                            {{ getKpiSubtext(widget) }}
+                                        </div>
+                                        
+                                        <!-- KPI Sparkline -->
+                                        <div class="w-full h-10 mt-1 relative">
+                                            <canvas :id="'kpi-sparkline-' + widget.id"></canvas>
+                                        </div>
                                     </div>
                                 </div>
 

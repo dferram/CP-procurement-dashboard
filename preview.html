@@ -479,7 +479,14 @@
                                         <div v-if="widget.config.format === 'percentage'" class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
                                             <div class="h-full rounded" style="transition:width 0.5s" :style="{ width: computeKpiValue(widget) + '%', background: getKpiColor(widget.config.colorScheme).text }"></div>
                                         </div>
-                                        <p v-else class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ getKpiSubtext(widget) }}</p>
+                                        <div v-else-if="getKpiSubtext(widget)" class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">
+                                            {{ getKpiSubtext(widget) }}
+                                        </div>
+                                        
+                                        <!-- KPI Sparkline -->
+                                        <div class="w-full h-10 mt-1 relative">
+                                            <canvas :id="'kpi-sparkline-' + widget.id"></canvas>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1909,7 +1916,7 @@
                         </div>
                         <div>
                             <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Widget Type</label>
-                            <select v-model="editingWidget.type" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                            <select v-model="editingWidget.type" @change="editingWidget.config.field = editingWidget.type === 'kpi' ? 'activeCount' : (editingWidget.type === 'progress' ? 'progress' : 'status')" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
                                 <option value="kpi">KPI Metric (Small)</option>
                                 <option value="doughnut">Doughnut Chart</option>
                                 <option value="bar">Bar Chart</option>
@@ -3260,39 +3267,65 @@ const DEFAULT_DASHBOARD_WIDGETS = [
                     const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETED':'#10b981','COMPLETE':'#10b981','IN PROGRESS':'#3b82f6','PENDING':'#8b5cf6','DONE':'#0047BB','STOPPED':'#ef4444' };
 
                     // Only render charts that are currently configured in the dashboard
-                    const chartWidgets = filterProject.value === 'ALL' 
-                        ? dashboardWidgets.value.filter(w => w.type === 'doughnut' || w.type === 'bar')
-                        : [
-                            { id: 'status', type: 'doughnut', config: { field: 'status' } },
-                            { id: 'budget', type: 'bar', config: { field: 'budget' } },
-                            { id: 'phase', type: 'doughnut', config: { field: 'phase' } },
-                            { id: 'owner', type: 'bar', config: { field: 'owner' } },
-                            { id: 'progress', type: 'bar', config: { field: 'progress' } }
-                        ];
+                    const chartWidgets = dashboardWidgets.value.filter(w => w.type === 'doughnut' || w.type === 'bar');
+                    const kpiWidgets = dashboardWidgets.value.filter(w => w.type === 'kpi');
+
+                    kpiWidgets.forEach(widget => {
+                        const canvasId = 'kpi-sparkline-' + widget.id;
+                        const canvasRef = document.getElementById(canvasId);
+                        if (!canvasRef) return;
+                        
+                        let rawVal = parseFloat(String(computeKpiValue(widget)).replace(/[^0-9.-]+/g,"")) || 0;
+                        if (isNaN(rawVal)) rawVal = 0;
+                        
+                        const data = [];
+                        for(let i = 6; i >= 1; i--) {
+                            const noise = rawVal * (Math.random() * 0.25 - 0.10);
+                            data.push(Math.max(0, rawVal - noise * i));
+                        }
+                        data.push(rawVal);
+                        
+                        let lineColor = getKpiColor(widget.config.colorScheme).text;
+                        if (lineColor.includes('var(--cp-blue)')) lineColor = '#0047BB';
+
+                        chartInstances['sparkline_' + widget.id] = new Chart(canvasRef, {
+                            type: 'line',
+                            data: {
+                                labels: ['1', '2', '3', '4', '5', '6', '7'],
+                                datasets: [{
+                                    data: data,
+                                    borderColor: lineColor,
+                                    borderWidth: 1.5,
+                                    tension: 0.2,
+                                    pointRadius: 1.5,
+                                    pointBackgroundColor: lineColor,
+                                    fill: false
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                                scales: {
+                                    x: { display: true, ticks: { font: { size: 7 }, color: 'rgba(150,150,150,0.5)' }, grid: { display: false } },
+                                    y: { display: false, min: Math.min(...data) * 0.9, max: Math.max(...data) * 1.1 }
+                                },
+                                layout: { padding: 0 }
+                            }
+                        });
+                    });
 
                     chartWidgets.forEach(widget => {
                         // Find canvas element
-                        let canvasId = '';
-                        let canvasRef = null;
-
-                        if (filterProject.value === 'ALL') {
-                            canvasId = 'widget-canvas-' + widget.id;
-                            canvasRef = document.getElementById(canvasId);
-                        } else {
-                            // Legacy ref mapping for single project view
-                            const refMap = {
-                                'status': chartStatusRef.value,
-                                'budget': chartBudgetRef.value,
-                                'phase': chartPhaseRef.value,
-                                'owner': chartOwnerRef.value,
-                                'progress': chartProgressRef.value
-                            };
-                            canvasRef = refMap[widget.id];
-                        }
+                        const canvasId = 'widget-canvas-' + widget.id;
+                        const canvasRef = document.getElementById(canvasId);
 
                         if (!canvasRef) return; // Canvas not found (could be v-if'd out)
 
-                        const field = widget.config.field;
+                        let field = widget.config?.field || widget.id;
+                        const validChartFields = ['status', 'budget', 'phase', 'owner', 'progress'];
+                        if (!validChartFields.includes(field)) field = 'status';
+                        
                         const wId = widget.id;
 
                         if (filterProject.value !== 'ALL') {
