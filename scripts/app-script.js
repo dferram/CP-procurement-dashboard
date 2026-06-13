@@ -52,7 +52,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const sortBy = ref('date_desc');
 
                 // ─── GANTT STATE ──────────────────────────────────────────
-                const ganttScale = ref('monthly');
+                const ganttScale = ref('daily');
                 const ganttProjectId = ref(null);
 
                 // ─── FOLDER STATE ─────────────────────────────────────────
@@ -68,8 +68,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 // ─── CONFIG STATE (loaded from GAS on mount) ──────────────
                 const config = ref({ cpTeam: [], externalTeam: [], suggestions: [] });
-                const newCpMember = ref('');
-                const newExternalMember = ref('');
+                const newCpMember = ref({ name: '', email: '' });
+                const newExternalMember = ref({ name: '', email: '' });
                 const newSuggestion = ref({ title: '', icon: 'fa-tasks' });
 
                 // ─── UI CONSTANTS ─────────────────────────────────────────
@@ -409,11 +409,11 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     if (typeof google === 'undefined' || !google.script) showToast("Mock Config Saved Successfully!");
                 };
 
-                const addTeamMember = (listKey, nameRef) => {
-                    if(nameRef.trim() !== '') {
-                        config.value[listKey].push(nameRef.trim());
-                        if(listKey==='cpTeam') newCpMember.value = '';
-                        if(listKey==='externalTeam') newExternalMember.value = '';
+                const addTeamMember = (listKey, memberRef) => {
+                    if(memberRef.name.trim() !== '' && memberRef.email.trim() !== '') {
+                        config.value[listKey].push({ name: memberRef.name.trim(), email: memberRef.email.trim() });
+                        if(listKey==='cpTeam') newCpMember.value = { name: '', email: '' };
+                        if(listKey==='externalTeam') newExternalMember.value = { name: '', email: '' };
                     }
                 };
                 const removeTeamMember = (listKey, idx) => config.value[listKey].splice(idx, 1);
@@ -1173,14 +1173,17 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     });
                 };
 
-                // Returns true when the current GAS user matches the project owner.
-                // Falls back to true (permissive) when running locally or owner is unset.
-                const isCurrentUserOwner = (proj) => {
-                    if (!proj || !proj.projectOwner) return true;
-                    if (!currentUserEmail.value) return true;
-                    const ownerName = proj.projectOwner.toLowerCase();
-                    const localPart = currentUserEmail.value.toLowerCase().split('@')[0];
-                    return localPart.split(/[._-]/).some(part => part.length > 2 && ownerName.includes(part));
+                const isOwnerCheck = (proj) => {
+                    if (!proj) return false;
+                    if (!currentUserEmail.value) return true; // Local fallback
+                    return proj.ownerEmail === currentUserEmail.value;
+                };
+
+                const isCollaboratorCheck = (proj) => {
+                    if (!proj) return false;
+                    if (isOwnerCheck(proj)) return true;
+                    if (!currentUserEmail.value) return true; // Local fallback
+                    return (proj.collaboratorEmails || []).includes(currentUserEmail.value);
                 };
 
                 // Called when the Project Owner confirms a manual override from the detail view.
@@ -1304,7 +1307,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         id: Date.now(), title: 'New Project', folder: 'Uncategorized', code: '', category: '', detail: '', reason: '', generalComments: '', icon: 'fa-rocket', driveRootUrl: '', chatWebhook: '',
                         finances: { amount: null, unit: 'none', calculated: 0 },
                         stages: [{ _localId: generateLocalId(), title: 'BRIEFING', status: 'PENDING', icon: 'fa-clipboard-list', assignee: '', tasks: [], startDate: '', endDate: '' }], 
-                        projectOwner: '', cycleStatus: 'ON TRACK', archived: false 
+                        projectOwner: '', ownerEmail: currentUserEmail.value || '', collaboratorEmails: [], cycleStatus: 'ON TRACK', archived: false 
                     };
                     activeViewerStage.value = 0;
                     viewerOpen.value = true;
@@ -1330,7 +1333,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     editingObject.value = { 
                         id: Date.now(), title: 'Project from ' + t.name, folder: 'Uncategorized', code: '', category: '', detail: '', reason: '', generalComments: '', icon: 'fa-box', driveRootUrl: '', chatWebhook: '',
                         finances: { amount: null, unit: 'none', calculated: 0 },
-                        stages: cloned.stages, projectOwner: '', cycleStatus: 'ON TRACK', archived: false 
+                        stages: cloned.stages, projectOwner: '', ownerEmail: currentUserEmail.value || '', collaboratorEmails: [], cycleStatus: 'ON TRACK', archived: false 
                     };
                     activeViewerStage.value = 0;
                     viewerOpen.value = true;
@@ -1386,7 +1389,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, formatGanttDuration, deleteTemplate, exportView,
-                    currentUserEmail, computePhaseStatus, isCurrentUserOwner, overridePhaseStatus, clearPhaseOverride,
+                    currentUserEmail, computePhaseStatus, isOwnerCheck, isCollaboratorCheck, overridePhaseStatus, clearPhaseOverride,
                     quickSaveCycleStatus, toggleTaskAlert, triggerDriveUpload, handleFileInputUpload, driveFileInputRef,
                     logoWhite, logoBlue
                 };
