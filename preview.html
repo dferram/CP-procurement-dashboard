@@ -422,105 +422,142 @@
                                 </div>
                             </div>
 
-                            <!-- KPI Row — 6 cards -->
-                            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Active Projects</p>
-                                        <i class="fas fa-folder-open text-sm opacity-40" style="color:var(--cp-blue)"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black" style="color:var(--cp-blue)">{{ procurementStats.activeCount }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)"><i class="fas fa-archive mr-1 opacity-60"></i>{{ stats.archived }} archived</p>
+                            <!-- ── Dashboard Toolbar ── -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">
+                                        <i class="fas fa-th-large mr-1 opacity-60"></i>{{ dashboardWidgets.length }} widgets
+                                    </span>
                                 </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">% On Time</p>
-                                        <i class="fas fa-circle-check text-emerald-500 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black text-emerald-500">{{ procurementStats.pctOnTime }}<span class="text-base">%</span></h3>
-                                    <div class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
-                                        <div class="h-full rounded" style="background:#10b981;transition:width 0.5s" :style="{ width: procurementStats.pctOnTime + '%' }"></div>
-                                    </div>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Investment</p>
-                                        <i class="fas fa-dollar-sign text-amber-500 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-2xl font-black text-amber-600">{{ formatFinance(procurementStats.investment) }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ stats.onCostCount }} projects on-cost</p>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Savings / FTG</p>
-                                        <i class="fas fa-piggy-bank text-emerald-500 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-2xl font-black text-emerald-600">{{ formatFinance(procurementStats.savings) }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ stats.ftgCount }} projects FTG</p>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Open Alerts</p>
-                                        <i class="fas fa-triangle-exclamation text-red-400 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black" :class="procurementStats.openAlerts > 0 ? 'text-red-500' : 'text-slate-300'">{{ procurementStats.openAlerts }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">Unresolved task alerts</p>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Avg Progress</p>
-                                        <i class="fas fa-chart-line opacity-40 text-sm" style="color:var(--cp-blue)"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black" style="color:var(--cp-blue)">{{ procurementStats.avgProgress }}<span class="text-base">%</span></h3>
-                                    <div class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
-                                        <div class="cp-progress-fill h-full" :style="{ width: procurementStats.avgProgress + '%' }"></div>
-                                    </div>
+                                <div class="flex items-center gap-2">
+                                    <button @click="dashboardEditMode = !dashboardEditMode"
+                                        :class="['flex items-center gap-1.5 px-3 py-1.5 rounded text-[0.7rem] font-bold transition-all border',
+                                            dashboardEditMode ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--cp-blue)] hover:text-[var(--cp-blue)]']">
+                                        <i :class="['fas text-[0.6rem]', dashboardEditMode ? 'fa-check' : 'fa-pen']"></i>
+                                        {{ dashboardEditMode ? 'Done' : 'Customize' }}
+                                    </button>
+                                    <button v-if="dashboardEditMode" @click="openWidgetEditor(null)"
+                                        class="flex items-center gap-1.5 px-3 py-1.5 rounded text-[0.7rem] font-bold bg-[var(--cp-blue)] text-white border border-transparent hover:opacity-90 transition-all">
+                                        <i class="fas fa-plus text-[0.55rem]"></i> Add Widget
+                                    </button>
+                                    <button v-if="dashboardEditMode" @click="resetWidgetsToDefaults"
+                                        class="flex items-center gap-1.5 px-3 py-1.5 rounded text-[0.7rem] font-bold bg-white border border-[var(--border)] hover:border-red-300 hover:text-red-500 transition-all" style="color:var(--text-muted)">
+                                        <i class="fas fa-rotate-left text-[0.55rem]"></i> Reset
+                                    </button>
                                 </div>
                             </div>
 
-                            <!-- Insights Chips -->
-                            <div v-if="insights.length" class="flex flex-wrap gap-2">
-                                <div v-for="(ins, i) in insights" :key="'ins-'+i"
-                                     :class="['flex items-center gap-2 px-3 py-1.5 rounded-full text-[0.68rem] font-bold border',
-                                         ins.type==='error'   ? 'bg-red-50 text-red-700 border-red-200' :
-                                         ins.type==='warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                         ins.type==='success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                'bg-blue-50 text-blue-700 border-blue-200']">
-                                    <i :class="['fas text-[0.6rem]',
-                                        ins.type==='error'   ? 'fa-circle-xmark' :
-                                        ins.type==='warning' ? 'fa-triangle-exclamation' :
-                                        ins.type==='success' ? 'fa-circle-check' : 'fa-circle-info']"></i>
-                                    {{ ins.text }}
+                            <!-- ── Dynamic Widget Grid (Portfolio & Single Project Mode) ── -->
+                                <!-- KPI Widgets Row -->
+                                <div v-if="dashboardWidgets.filter(w => w.type === 'kpi').length" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                                    <div v-for="(widget, wIdx) in dashboardWidgets.filter(w => w.type === 'kpi')" :key="widget.id"
+                                         class="cp-kpi p-5 flex flex-col gap-1.5 relative group/widget">
+                                        <!-- Edit overlay -->
+                                        <div v-if="dashboardEditMode" class="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-panel z-10 flex items-center justify-center gap-1.5 opacity-0 group-hover/widget:opacity-100 transition-all">
+                                            <button @click="openWidgetEditor(widget.id)" class="w-7 h-7 rounded bg-white shadow-sm border border-slate-200 flex items-center justify-center text-[var(--cp-blue)] hover:bg-[var(--cp-blue-light)] transition-colors" title="Edit">
+                                                <i class="fas fa-pen text-[0.55rem]"></i>
+                                            </button>
+                                            <button @click="moveWidget(dashboardWidgets.indexOf(widget), -1)" class="w-7 h-7 rounded bg-white shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Left">
+                                                <i class="fas fa-chevron-left text-[0.55rem]"></i>
+                                            </button>
+                                            <button @click="moveWidget(dashboardWidgets.indexOf(widget), 1)" class="w-7 h-7 rounded bg-white shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Right">
+                                                <i class="fas fa-chevron-right text-[0.55rem]"></i>
+                                            </button>
+                                            <button @click="removeWidget(widget.id)" class="w-7 h-7 rounded bg-white shadow-sm border border-red-200 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Remove">
+                                                <i class="fas fa-trash-alt text-[0.55rem]"></i>
+                                            </button>
+                                        </div>
+                                        <!-- KPI content -->
+                                        <div class="flex items-center justify-between mb-1">
+                                            <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">{{ widget.title }}</p>
+                                            <i :class="['fas', widget.config.icon || 'fa-chart-line', 'text-sm opacity-40']" :style="{ color: getKpiColor(widget.config.colorScheme).text }"></i>
+                                        </div>
+                                        <h3 class="text-3xl font-black" :style="{ color: getKpiColor(widget.config.colorScheme).text }">
+                                            {{ formatKpiValue(widget, computeKpiValue(widget)) }}
+                                        </h3>
+                                        <!-- Progress bar for percentage KPIs -->
+                                        <div v-if="widget.config.format === 'percentage'" class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
+                                            <div class="h-full rounded" style="transition:width 0.5s" :style="{ width: computeKpiValue(widget) + '%', background: getKpiColor(widget.config.colorScheme).text }"></div>
+                                        </div>
+                                        <p v-else class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ getKpiSubtext(widget) }}</p>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Charts — 2×2 grid -->
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-chart-pie mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.status }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartStatusRef"></canvas></div>
+                                <!-- Insights Chips -->
+                                <div v-if="insights.length" class="flex flex-wrap gap-2">
+                                    <div v-for="(ins, i) in insights" :key="'ins-'+i"
+                                         :class="['flex items-center gap-2 px-3 py-1.5 rounded-full text-[0.68rem] font-bold border',
+                                             ins.type==='error'   ? 'bg-red-50 text-red-700 border-red-200' :
+                                             ins.type==='warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                             ins.type==='success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                    'bg-blue-50 text-blue-700 border-blue-200']">
+                                        <i :class="['fas text-[0.6rem]',
+                                            ins.type==='error'   ? 'fa-circle-xmark' :
+                                            ins.type==='warning' ? 'fa-triangle-exclamation' :
+                                            ins.type==='success' ? 'fa-circle-check' : 'fa-circle-info']"></i>
+                                        {{ ins.text }}
+                                    </div>
                                 </div>
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-folder-tree mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.budget }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartBudgetRef"></canvas></div>
-                                </div>
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-layer-group mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.phase }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartPhaseRef"></canvas></div>
-                                </div>
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-users mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.owner }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartOwnerRef"></canvas></div>
-                                </div>
-                            </div>
 
-                            <!-- 2.5 Progress per Project — full width -->
-                            <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5">
-                                <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-bars-progress mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.progress }}</h4>
-                                <div class="relative" :style="{ height: (filterProject !== 'ALL' ? Math.max(180, (selectedProjectObj?.stages?.length || 1) * 45 + 40) : Math.max(180, summaryProgressPerProject.length * 32 + 40)) + 'px' }">
-                                    <canvas ref="chartProgressRef"></canvas>
+                                <!-- Chart Widgets Grid -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <template v-for="(widget, wIdx) in dashboardWidgets.filter(w => w.type === 'doughnut' || w.type === 'bar' || w.type === 'progress')" :key="widget.id">
+                                        <div :class="['bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col relative group/widget', widget.size === 'large' ? 'lg:col-span-2' : '']">
+                                            <!-- Edit overlay for charts -->
+                                            <div v-if="dashboardEditMode" class="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover/widget:opacity-100 transition-all">
+                                                <button @click="openWidgetEditor(widget.id)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center text-[var(--cp-blue)] hover:bg-[var(--cp-blue-light)] transition-colors" title="Edit">
+                                                    <i class="fas fa-pen text-[0.55rem]"></i>
+                                                </button>
+                                                <button @click="moveWidget(dashboardWidgets.indexOf(widget), -1)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Up">
+                                                    <i class="fas fa-chevron-up text-[0.55rem]"></i>
+                                                </button>
+                                                <button @click="moveWidget(dashboardWidgets.indexOf(widget), 1)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Down">
+                                                    <i class="fas fa-chevron-down text-[0.55rem]"></i>
+                                                </button>
+                                                <button @click="removeWidget(widget.id)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-red-200 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Remove">
+                                                    <i class="fas fa-trash-alt text-[0.55rem]"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Chart title -->
+                                            <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)">
+                                                <i class="fas fa-chart-bar mr-1.5" style="color:var(--cp-blue)"></i>{{ widget.title }}
+                                            </h4>
+                                            <!-- Progress bar widget type -->
+                                            <template v-if="widget.type === 'progress'">
+                                                <div class="flex-1 flex flex-col justify-center gap-3 py-2">
+                                                    <div class="flex justify-between text-[0.65rem] font-bold" style="color:var(--text-muted)">
+                                                        <span>{{ widget.config && widget.config.label ? widget.config.label : 'Average Progress' }}</span>
+                                                        <span style="color:var(--cp-blue)">{{ computeKpiValue(widget) }}%</span>
+                                                    </div>
+                                                    <div class="cp-progress-bg h-3 overflow-hidden">
+                                                        <div class="cp-progress-fill h-full transition-all duration-700" :style="{ width: computeKpiValue(widget) + '%' }"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <!-- Chart canvas for doughnut/bar -->
+                                            <template v-else>
+                                                <div class="relative flex-1" :style="{ minHeight: widget.size === 'large' ? (Math.max(180, (summaryProgressPerProject.length || 1) * 32 + 40) + 'px') : '220px' }">
+                                                    <canvas :id="'widget-canvas-' + widget.id"></canvas>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
                                 </div>
-                            </div>
+
+                                <!-- Empty widget state -->
+                                <div v-if="dashboardWidgets.length === 0" class="text-center py-16">
+                                    <i class="fas fa-chart-line text-5xl mb-4 opacity-15" style="color:var(--cp-blue)"></i>
+                                    <p class="font-bold text-sm uppercase tracking-widest mb-2" style="color:var(--text-muted)">No widgets configured</p>
+                                    <p class="text-xs mb-5" style="color:var(--text-muted)">Add KPIs and charts to build your executive dashboard.</p>
+                                    <div class="flex items-center justify-center gap-3">
+                                        <button @click="openWidgetEditor(null)" class="btn-primary flex items-center gap-2">
+                                            <i class="fas fa-plus text-xs"></i> Add Widget
+                                        </button>
+                                        <button @click="resetWidgetsToDefaults" class="btn-secondary flex items-center gap-2">
+                                            <i class="fas fa-rotate-left text-xs"></i> Load Defaults
+                                        </button>
+                                    </div>
+                                </div>
 
                         </div>
                     </div>
@@ -1856,6 +1893,99 @@
             </div>
         </div>
 
+        <!-- ── Widget Editor Modal ── -->
+        <div v-if="widgetEditorOpen" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div class="bg-white rounded-panel shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-800"><i class="fas fa-sliders mr-2" style="color:var(--cp-blue)"></i> {{ editingWidget.id ? 'Edit Widget' : 'New Widget' }}</h3>
+                    <button @click="closeWidgetEditor" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                    <!-- Basic Info -->
+                    <div class="grid grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Widget Title</label>
+                            <input v-model="editingWidget.title" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                        </div>
+                        <div>
+                            <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Widget Type</label>
+                            <select v-model="editingWidget.type" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                                <option value="kpi">KPI Metric (Small)</option>
+                                <option value="doughnut">Doughnut Chart</option>
+                                <option value="bar">Bar Chart</option>
+                                <option value="progress">Progress Bar (Wide)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Data Source Configuration -->
+                    <div class="p-4 bg-slate-50 rounded-panel border border-slate-200 space-y-4">
+                        <h4 class="text-[0.65rem] font-bold text-slate-500 uppercase tracking-widest"><i class="fas fa-database mr-1"></i> Data Source</h4>
+                        <div class="grid grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Data Field</label>
+                                <select v-model="editingWidget.config.field" class="w-full bg-white border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                                    <optgroup label="Counts">
+                                        <option value="activeCount">Active Projects Count</option>
+                                        <option value="archivedCount">Archived Projects Count</option>
+                                        <option value="ftgCount">FTG Count (Fill the Gap)</option>
+                                        <option value="onCostCount">On Cost Count</option>
+                                        <option value="openAlerts">Open Alerts</option>
+                                    </optgroup>
+                                    <optgroup label="Financials">
+                                        <option value="investment">Total Investment</option>
+                                        <option value="savings">Total Savings / FTG</option>
+                                    </optgroup>
+                                    <optgroup label="Performance">
+                                        <option value="pctOnTime">% Projects On Time</option>
+                                        <option value="progress">Average Progress %</option>
+                                    </optgroup>
+                                    <optgroup label="Categories (For Charts)">
+                                        <option value="status">Project Status</option>
+                                        <option value="budget">Budget Size</option>
+                                        <option value="phase">Current Phase</option>
+                                        <option value="owner">Project Owner</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div v-if="editingWidget.type === 'kpi'">
+                                <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Format</label>
+                                <select v-model="editingWidget.config.format" class="w-full bg-white border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                                    <option value="number">Raw Number</option>
+                                    <option value="percentage">Percentage (%)</option>
+                                    <option value="currency">Currency ($)</option>
+                                </select>
+                            </div>
+                            <div v-if="editingWidget.type !== 'kpi'">
+                                <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Chart Size</label>
+                                <select v-model="editingWidget.size" class="w-full bg-white border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                                    <option value="normal">Half Width (Normal)</option>
+                                    <option value="large">Full Width (Large)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Styling Configuration -->
+                    <div v-if="editingWidget.type === 'kpi'" class="space-y-4">
+                        <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Color Scheme</label>
+                        <div class="flex gap-3">
+                            <button v-for="c in ['blue', 'emerald', 'amber', 'red']" :key="c" @click="editingWidget.config.colorScheme = c"
+                                :class="['w-8 h-8 rounded-full border-2 transition-all', editingWidget.config.colorScheme === c ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent opacity-60 hover:opacity-100']"
+                                :style="{ background: c === 'blue' ? 'var(--cp-blue)' : c === 'emerald' ? '#10b981' : c === 'amber' ? '#f59e0b' : '#ef4444' }">
+                            </button>
+                        </div>
+                        <div>
+                            <label class="block text-[0.65rem] font-bold text-slate-400 uppercase mb-1.5">Icon (FontAwesome Class)</label>
+                            <input v-model="editingWidget.config.icon" type="text" placeholder="e.g., fa-chart-line" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--cp-blue)] text-slate-700">
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-panel">
+                    <button @click="closeWidgetEditor" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">Cancel</button>
+                    <button @click="saveWidget" class="btn-primary px-5 py-2">Save Widget</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Global Dialog Modal (replaces alert/confirm/prompt) -->
         <div v-if="dialog.show" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
             <div class="bg-white rounded-panel shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-5">
@@ -1891,12 +2021,26 @@
 
 <script>
 const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+
+const DEFAULT_DASHBOARD_WIDGETS = [
+    { id: 'w_active_projects', type: 'kpi', title: 'Active Projects', config: { field: 'activeCount', format: 'number', colorScheme: 'blue', icon: 'fa-folder-open' } },
+    { id: 'w_pct_on_time', type: 'kpi', title: '% On Time', config: { field: 'pctOnTime', format: 'percentage', colorScheme: 'emerald', icon: 'fa-circle-check' } },
+    { id: 'w_investment', type: 'kpi', title: 'Investment', config: { field: 'investment', format: 'currency', colorScheme: 'amber', icon: 'fa-dollar-sign' } },
+    { id: 'w_savings', type: 'kpi', title: 'Savings / FTG', config: { field: 'savings', format: 'currency', colorScheme: 'emerald', icon: 'fa-piggy-bank' } },
+    { id: 'w_open_alerts', type: 'kpi', title: 'Open Alerts', config: { field: 'openAlerts', format: 'number', colorScheme: 'red', icon: 'fa-triangle-exclamation' } },
+    { id: 'w_avg_progress', type: 'kpi', title: 'Avg Progress', config: { field: 'progress', format: 'percentage', colorScheme: 'blue', icon: 'fa-chart-line' } },
+    { id: 'w_chart_status', type: 'doughnut', title: 'Projects by Status', config: { field: 'status' }, size: 'normal' },
+    { id: 'w_chart_budget', type: 'bar', title: 'Budget Distribution', config: { field: 'budget' }, size: 'normal' },
+    { id: 'w_chart_phase', type: 'bar', title: 'Projects by Phase', config: { field: 'phase' }, size: 'normal' },
+    { id: 'w_chart_owner', type: 'doughnut', title: 'Projects by Owner', config: { field: 'owner' }, size: 'normal' },
+    { id: 'w_chart_progress', type: 'progress', title: 'Progress Overview', config: { field: 'progress' }, size: 'large' }
+];
         createApp({
             setup() {
                 // ─── UI STATE ────────────────────────────────────────────
                 const collapsed = ref(false);
                 const dialog = ref({ show: false, type: 'alert', message: '', inputValue: '', resolve: null }); // drives the global modal — see dialogConfirm/dialogCancel
-                const currentView = ref('dashboard');
+                const currentView = ref('summary');
                 const viewMode = ref('workflow');
                 const searchQuery = ref('');
                 const viewerOpen = ref(false);
@@ -1904,6 +2048,21 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const dashShowArchived = ref(false);
                 const dbShowArchived = ref(false);
                 const toast = ref({ show: false, message: '', type: 'success' });
+                const dashboardWidgets = ref(JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS)));
+                const dashboardEditMode = ref(false);
+                const widgetEditorOpen = ref(false);
+                const editingWidget = ref({
+                    id: null,
+                    type: 'kpi',
+                    title: 'New Widget',
+                    size: 'normal',
+                    config: {
+                        field: 'activeCount',
+                        format: 'number',
+                        colorScheme: 'blue',
+                        icon: 'fa-chart-line'
+                    }
+                });
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
                 const currentUserEmail = ref('bp_diegofernando_ramirezgarcia@colpal.com');
@@ -1993,6 +2152,111 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     return found ? found.label : 'PackTrack';
                 });
 
+                // ─── WIDGET UTILITIES ─────────────────────────────────────
+                const getKpiColor = (scheme) => {
+                    const colors = {
+                        blue: { bg: '#eff6ff', text: '#3b82f6', border: '#bfdbfe' },
+                        emerald: { bg: '#ecfdf5', text: '#10b981', border: '#a7f3d0' },
+                        amber: { bg: '#fffbeb', text: '#f59e0b', border: '#fde68a' },
+                        red: { bg: '#fef2f2', text: '#ef4444', border: '#fecaca' }
+                    };
+                    return colors[scheme] || colors.blue;
+                };
+
+                const formatKpiValue = (widget, value) => {
+                    if (widget.config.format === 'percentage') return value + '%';
+                    if (widget.config.format === 'currency') return formatFinance(value);
+                    return value;
+                };
+
+                const getKpiSubtext = (widget) => {
+                    const subtexts = {
+                        activeCount: `${stats.value.archived} archived`,
+                        investment: `${stats.value.onCostCount} projects on-cost`,
+                        savings: `${stats.value.ftgCount} projects FTG`,
+                        openAlerts: `Unresolved task alerts`
+                    };
+                    return subtexts[widget.config.field] || '';
+                };
+
+                // ─── WIDGET CRUD ──────────────────────────────────────────
+                const openWidgetEditor = (id = null) => {
+                    if (id) {
+                        const existing = dashboardWidgets.value.find(w => w.id === id);
+                        editingWidget.value = JSON.parse(JSON.stringify(existing));
+                    } else {
+                        editingWidget.value = {
+                            id: null,
+                            type: 'kpi',
+                            title: 'New Widget',
+                            size: 'normal',
+                            config: { field: 'activeCount', format: 'number', colorScheme: 'blue', icon: 'fa-chart-line' }
+                        };
+                    }
+                    widgetEditorOpen.value = true;
+                };
+
+                const closeWidgetEditor = () => {
+                    widgetEditorOpen.value = false;
+                };
+
+                const saveWidget = () => {
+                    if (!editingWidget.value.title) {
+                        showToast('Title is required', 'error');
+                        return;
+                    }
+                    const newWidget = JSON.parse(JSON.stringify(editingWidget.value));
+                    if (newWidget.id) {
+                        const idx = dashboardWidgets.value.findIndex(w => w.id === newWidget.id);
+                        if (idx !== -1) dashboardWidgets.value[idx] = newWidget;
+                    } else {
+                        newWidget.id = 'w_' + Math.random().toString(36).substr(2, 9);
+                        dashboardWidgets.value.push(newWidget);
+                    }
+                    closeWidgetEditor();
+                    saveDashboardWidgets();
+                    // Re-render charts next tick if a chart was modified/added
+                    if (newWidget.type !== 'kpi') {
+                        nextTick(() => {
+                            if (currentView.value === 'summary') initCharts();
+                        });
+                    }
+                };
+
+                const removeWidget = async (id) => {
+                    const confirmed = await showConfirm('Remove this widget from the dashboard?');
+                    if (confirmed) {
+                        dashboardWidgets.value = dashboardWidgets.value.filter(w => w.id !== id);
+                        saveDashboardWidgets();
+                    }
+                };
+
+                const moveWidget = (idx, direction) => {
+                    const newIdx = idx + direction;
+                    if (newIdx < 0 || newIdx >= dashboardWidgets.value.length) return;
+                    const temp = dashboardWidgets.value[idx];
+                    dashboardWidgets.value[idx] = dashboardWidgets.value[newIdx];
+                    dashboardWidgets.value[newIdx] = temp;
+                    saveDashboardWidgets();
+                };
+
+                const resetWidgetsToDefaults = async () => {
+                    const confirmed = await showConfirm('Reset dashboard to default widgets? This cannot be undone.');
+                    if (confirmed) {
+                        dashboardWidgets.value = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+                        saveDashboardWidgets();
+                        nextTick(() => {
+                            if (currentView.value === 'summary') initCharts();
+                        });
+                    }
+                };
+
+                const saveDashboardWidgets = () => {
+                    gsRun('saveDashboardWidgets', [JSON.stringify(dashboardWidgets.value)], () => {
+                        showToast('Dashboard layout saved');
+                    });
+                };
+
                 // ─── UTILITIES ────────────────────────────────────────────
                 const generateLocalId = () => 'l_' + Math.random().toString(36).substr(2, 9);
 
@@ -2061,8 +2325,25 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             customFolders.value = fNames;
                             folderState.value = fs;
                         }
-                        if (data.config) config.value = data.config;
+                        if (data.config) {
+                            config.value = data.config;
+                            if (data.config.dashboardWidgets) {
+                                try {
+                                    dashboardWidgets.value = JSON.parse(data.config.dashboardWidgets);
+                                } catch (e) {
+                                    console.error("Failed to parse dashboardWidgets", e);
+                                    dashboardWidgets.value = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+                                }
+                            } else {
+                                dashboardWidgets.value = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
+                            }
+                        }
                         isRefreshing.value = false;
+                        
+                        // Initialize widgets if in summary view
+                        nextTick(() => {
+                            if (currentView.value === 'summary') initCharts();
+                        });
                     }, (err) => {
                         showToast('Error loading data: ' + err.message, 'error');
                         isRefreshing.value = false;
@@ -2355,7 +2636,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                                 { title: 'LAUNCH', icon: 'fa-rocket' }
                             ]
                         };
+                        dashboardWidgets.value = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_WIDGETS));
                         isRefreshing.value = false;
+                        
+                        nextTick(() => {
+                            if (currentView.value === 'summary') initCharts();
+                        });
                     }, 300);
                 };
 
@@ -2898,11 +3184,11 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const chartTitles = computed(() => {
                     const ip = filterProject.value !== 'ALL';
                     return {
-                        status:   ip ? 'Fases por Status'           : 'Portfolio Status Distribution',
-                        budget:   ip ? 'Progreso por Fase'           : 'Budget by Category',
-                        phase:    ip ? 'Resumen de Tareas'            : 'Projects by Current Phase',
-                        owner:    ip ? 'Alertas Activas por Fase'     : 'Workload by Owner',
-                        progress: ip ? 'Desglose de Tareas por Fase'  : 'Individual Project Progress',
+                        status:   ip ? 'Phases by Status'           : 'Portfolio Status Distribution',
+                        budget:   ip ? 'Progress by Phase'           : 'Budget by Category',
+                        phase:    ip ? 'Task Summary'            : 'Projects by Current Phase',
+                        owner:    ip ? 'Active Alerts by Phase'     : 'Workload by Owner',
+                        progress: ip ? 'Task Breakdown by Phase'  : 'Individual Project Progress',
                     };
                 });
 
@@ -2919,12 +3205,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                         const noDateStages = stages.filter(s => !s.startDate || !s.endDate).length;
                         const allTasks = stages.flatMap(s => s.tasks || []);
                         const doneTasks = allTasks.filter(t => t.done).length;
-                        list.push({ type: progress >= 75 ? 'success' : progress >= 40 ? 'info' : 'warning', text: `Progreso: ${progress}% — Fase activa: ${phase}` });
-                        if (p.cycleStatus === 'DELAYED' || p.cycleStatus === 'AT RISK') list.push({ type: 'warning', text: `Proyecto en estado ${p.cycleStatus}` });
-                        if (alertCount > 0) list.push({ type: 'error', text: `${alertCount} tarea(s) con alerta activa` });
-                        list.push({ type: 'info', text: `${doneTasks} de ${allTasks.length} tareas completadas — ${doneStages} de ${stages.length} fases finalizadas` });
-                        if (noDateStages > 0) list.push({ type: 'info', text: `${noDateStages} fase(s) sin fechas de inicio/fin` });
-                        if (!p.projectOwner) list.push({ type: 'info', text: 'Sin responsable asignado al proyecto' });
+                        list.push({ type: progress >= 75 ? 'success' : progress >= 40 ? 'info' : 'warning', text: `Progress: ${progress}% — Active phase: ${phase}` });
+                        if (p.cycleStatus === 'DELAYED' || p.cycleStatus === 'AT RISK') list.push({ type: 'warning', text: `Project in ${p.cycleStatus} state` });
+                        if (alertCount > 0) list.push({ type: 'error', text: `${alertCount} task(s) with active alert` });
+                        list.push({ type: 'info', text: `${doneTasks} of ${allTasks.length} completed tasks — ${doneStages} of ${stages.length} completed phases` });
+                        if (noDateStages > 0) list.push({ type: 'info', text: `${noDateStages} phase(s) without start/end dates` });
+                        if (!p.projectOwner) list.push({ type: 'info', text: 'No owner assigned to project' });
                         return list;
                     }
                     const active = filteredProjects.value.filter(p => !p.archived);
@@ -2934,70 +3220,121 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     const noDates = active.filter(p => p.stages?.some(s => !s.startDate)).length;
                     const avgProgress = active.length ? Math.round(active.reduce((s, p) => s + calculateProgress(p), 0) / active.length) : 0;
                     const list = [];
-                    if (atRisk > 0)       list.push({ type: 'warning', text: `${atRisk} proyecto(s) DELAYED o AT RISK requieren atención` });
-                    if (openAlerts > 0)   list.push({ type: 'error',   text: `${openAlerts} tarea(s) con alerta activa sin resolver` });
-                    if (noOwner > 0)      list.push({ type: 'info',    text: `${noOwner} proyecto(s) sin responsable asignado` });
-                    if (noDates > 0)      list.push({ type: 'info',    text: `${noDates} proyecto(s) con fases sin cronograma` });
-                    if (avgProgress > 75) list.push({ type: 'success', text: `Portafolio en etapa avanzada — ${avgProgress}% de progreso promedio` });
+                    if (atRisk > 0)       list.push({ type: 'warning', text: `${atRisk} project(s) DELAYED or AT RISK require attention` });
+                    if (openAlerts > 0)   list.push({ type: 'error',   text: `${openAlerts} task(s) with active alert unresolved` });
+                    if (noOwner > 0)      list.push({ type: 'info',    text: `${noOwner} project(s) without assigned owner` });
+                    if (noDates > 0)      list.push({ type: 'info',    text: `${noDates} project(s) with phases without schedule` });
+                    if (avgProgress > 75) list.push({ type: 'success', text: `Portfolio in advanced stage — ${avgProgress}% average progress` });
                     return list;
                 });
 
+                const computeKpiValue = (widget) => {
+                    const field = widget.config?.field;
+                    if (field === 'pctOnTime') return procurementStats.value.pctOnTime;
+                    if (field === 'investment') return procurementStats.value.investment;
+                    if (field === 'savings') return procurementStats.value.savings;
+                    if (field === 'openAlerts') return procurementStats.value.openAlerts;
+                    if (field === 'progress') return procurementStats.value.avgProgress;
+                    if (field === 'activeCount') return procurementStats.value.activeCount;
+                    if (field === 'archivedCount') return stats.value.archived;
+                    if (field === 'ftgCount') return stats.value.ftgCount;
+                    if (field === 'onCostCount') return stats.value.onCostCount;
+                    return 0;
+                };
+
                 const destroyCharts = () => {
-                    ['status','budget','phase','owner','progress'].forEach(k => {
-                        if (chartInstances[k]) { chartInstances[k].destroy(); chartInstances[k] = null; }
+                    Object.values(chartInstances).forEach(chart => {
+                        if (chart) chart.destroy();
                     });
+                    // Reset chart instances object completely
+                    for (let key in chartInstances) {
+                        delete chartInstances[key];
+                    }
                 };
 
                 const initCharts = () => {
                     destroyCharts();
                     if (typeof Chart === 'undefined') return;
+
                     const ownerPalette = ['#0047BB','#10b981','#f59e0b','#f97316','#8b5cf6','#06b6d4'];
                     const statusMap = { 'ON TRACK':'#10b981','DELAYED':'#f59e0b','AT RISK':'#f97316','CANCELLED':'#ef4444','ON HOLD':'#94a3b8','COMPLETED':'#10b981','COMPLETE':'#10b981','IN PROGRESS':'#3b82f6','PENDING':'#8b5cf6','DONE':'#0047BB','STOPPED':'#ef4444' };
-                    if (filterProject.value !== 'ALL') {
-                        if (chartStatusRef.value) {
-                            const psd = projectPhaseStatusData.value;
-                            chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:psd.labels, datasets:[{ data:psd.values, backgroundColor:psd.labels.map(l=>statusMap[l]||'#94a3b8'), borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+
+                    // Only render charts that are currently configured in the dashboard
+                    const chartWidgets = filterProject.value === 'ALL' 
+                        ? dashboardWidgets.value.filter(w => w.type === 'doughnut' || w.type === 'bar')
+                        : [
+                            { id: 'status', type: 'doughnut', config: { field: 'status' } },
+                            { id: 'budget', type: 'bar', config: { field: 'budget' } },
+                            { id: 'phase', type: 'doughnut', config: { field: 'phase' } },
+                            { id: 'owner', type: 'bar', config: { field: 'owner' } },
+                            { id: 'progress', type: 'bar', config: { field: 'progress' } }
+                        ];
+
+                    chartWidgets.forEach(widget => {
+                        // Find canvas element
+                        let canvasId = '';
+                        let canvasRef = null;
+
+                        if (filterProject.value === 'ALL') {
+                            canvasId = 'widget-canvas-' + widget.id;
+                            canvasRef = document.getElementById(canvasId);
+                        } else {
+                            // Legacy ref mapping for single project view
+                            const refMap = {
+                                'status': chartStatusRef.value,
+                                'budget': chartBudgetRef.value,
+                                'phase': chartPhaseRef.value,
+                                'owner': chartOwnerRef.value,
+                                'progress': chartProgressRef.value
+                            };
+                            canvasRef = refMap[widget.id];
                         }
-                        if (chartBudgetRef.value) {
-                            const pp = projectPhaseProgress.value;
-                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completado', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+
+                        if (!canvasRef) return; // Canvas not found (could be v-if'd out)
+
+                        const field = widget.config.field;
+                        const wId = widget.id;
+
+                        if (filterProject.value !== 'ALL') {
+                            // SINGLE PROJECT DATA MAPPING
+                            if (field === 'status') {
+                                const psd = projectPhaseStatusData.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'doughnut', data:{ labels:psd.labels, datasets:[{ data:psd.values, backgroundColor:psd.labels.map(l=>statusMap[l]||'#94a3b8'), borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            } else if (field === 'budget') {
+                                const pp = projectPhaseProgress.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Completed', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            } else if (field === 'phase') {
+                                const td = projectTasksData.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'doughnut', data:{ labels:['Completed','Pending','At Risk'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#8b5cf6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            } else if (field === 'owner') {
+                                const pp = projectPhaseProgress.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alerts', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            } else if (field === 'progress') {
+                                const p = selectedProjectObj.value;
+                                const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completed', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pending', data:phases.map(ph=>ph.pending), backgroundColor:'#8b5cf6' },{ label:'At Risk', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
+                            }
+                        } else {
+                            // PORTFOLIO SUMMARY DATA MAPPING
+                            if (field === 'status') {
+                                const sd = summaryStatusData.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels:sd.labels, datasets:[{ data:sd.values, backgroundColor:['#10b981','#f59e0b','#f97316','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
+                            } else if (field === 'budget') {
+                                const bd = summaryBudgetByFolder.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels:bd.map(d=>d.folder), datasets:[{ label:'Investment', data:bd.map(d=>d.investment), backgroundColor:'#0047BB' },{ label:'Savings', data:bd.map(d=>d.savings), backgroundColor:'#10b981' }] }, options:{ indexAxis: widget.type === 'bar' ? 'y' : 'x', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ ticks:{ font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            } else if (field === 'phase') {
+                                const pd = summaryProjectsByPhase.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels:Object.keys(pd), datasets:[{ label:'Projects', data:Object.values(pd), backgroundColor: widget.type==='doughnut'?Object.keys(pd).map((_,i)=>ownerPalette[i%ownerPalette.length]):'#0047BB', borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display: widget.type==='doughnut' } }, scales: widget.type==='bar'?{ y:{ ticks:{ stepSize:1, font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:40 } } }:{} } });
+                            } else if (field === 'owner') {
+                                const od = summaryProjectsByOwner.value;
+                                const labels = Object.keys(od);
+                                chartInstances[wId] = new Chart(canvasRef, { type: widget.type, data:{ labels, datasets:[{ label:'Projects', data:Object.values(od), backgroundColor:labels.map((_,i)=>ownerPalette[i%ownerPalette.length]), borderRadius:4 }] }, options:{ indexAxis: widget.type === 'bar' ? 'y' : 'x', responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display: widget.type==='doughnut' } }, scales: widget.type==='bar'?{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } }:{} } });
+                            } else if (field === 'progress') {
+                                const pp = summaryProgressPerProject.value;
+                                chartInstances[wId] = new Chart(canvasRef, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Progress', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
+                            }
                         }
-                        if (chartPhaseRef.value) {
-                            const td = projectTasksData.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'doughnut', data:{ labels:['Completadas','Pendientes','Con Alerta'], datasets:[{ data:[td.done,td.pending,td.alert], backgroundColor:['#10b981','#3b82f6','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
-                        }
-                        if (chartOwnerRef.value) {
-                            const pp = projectPhaseProgress.value;
-                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'Alertas', data:pp.map(p=>p.alerts), backgroundColor:'#ef4444', borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                        if (chartProgressRef.value) {
-                            const p = selectedProjectObj.value;
-                            const phases = (p?.stages||[]).map(s => { const t=s.tasks||[]; return { label:s.title, done:t.filter(x=>x.done).length, alert:t.filter(x=>x.alert&&!x.done).length, pending:t.filter(x=>!x.done&&!x.alert).length }; });
-                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:phases.map(ph=>ph.label), datasets:[{ label:'Completadas', data:phases.map(ph=>ph.done), backgroundColor:'#10b981' },{ label:'Pendientes', data:phases.map(ph=>ph.pending), backgroundColor:'#3b82f6' },{ label:'Con Alerta', data:phases.map(ph=>ph.alert), backgroundColor:'#ef4444' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ stacked:true, ticks:{ stepSize:1, font:{ size:10 } } }, y:{ stacked:true, ticks:{ font:{ size:10 } } } } } });
-                        }
-                    } else {
-                        if (chartStatusRef.value) {
-                            const sd = summaryStatusData.value;
-                            chartInstances.status = new Chart(chartStatusRef.value, { type:'doughnut', data:{ labels:sd.labels, datasets:[{ data:sd.values, backgroundColor:['#10b981','#f59e0b','#f97316','#ef4444'], borderWidth:2, borderColor:'#fff' }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11, weight:'700' }, padding:14 } } } } });
-                        }
-                        if (chartBudgetRef.value) {
-                            const bd = summaryBudgetByFolder.value;
-                            chartInstances.budget = new Chart(chartBudgetRef.value, { type:'bar', data:{ labels:bd.map(d=>d.folder), datasets:[{ label:'Investment', data:bd.map(d=>d.investment), backgroundColor:'#0047BB' },{ label:'Savings', data:bd.map(d=>d.savings), backgroundColor:'#10b981' }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:10 } } } }, scales:{ x:{ ticks:{ font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                        if (chartPhaseRef.value) {
-                            const pd = summaryProjectsByPhase.value;
-                            chartInstances.phase = new Chart(chartPhaseRef.value, { type:'bar', data:{ labels:Object.keys(pd), datasets:[{ label:'Projects', data:Object.values(pd), backgroundColor:'#0047BB', borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ stepSize:1, font:{ size:10 } } }, x:{ ticks:{ font:{ size:10 }, maxRotation:40 } } } } });
-                        }
-                        if (chartOwnerRef.value) {
-                            const od = summaryProjectsByOwner.value;
-                            const labels = Object.keys(od);
-                            chartInstances.owner = new Chart(chartOwnerRef.value, { type:'bar', data:{ labels, datasets:[{ label:'Projects', data:Object.values(od), backgroundColor:labels.map((_,i)=>ownerPalette[i%ownerPalette.length]), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                        if (chartProgressRef.value) {
-                            const pp = summaryProgressPerProject.value;
-                            chartInstances.progress = new Chart(chartProgressRef.value, { type:'bar', data:{ labels:pp.map(p=>p.label), datasets:[{ label:'% Progress', data:pp.map(p=>p.progress), backgroundColor:pp.map(p=>statusMap[p.status]||'#0047BB'), borderRadius:4 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ min:0, max:100, ticks:{ callback:v=>v+'%', font:{ size:10 } } }, y:{ ticks:{ font:{ size:10 } } } } } });
-                        }
-                    }
+                    });
                 };
 
                 watch(currentView, (nv, ov) => {
@@ -3537,7 +3874,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, formatGanttDuration, deleteTemplate, exportView,
                     currentUserEmail, userInitials, computePhaseStatus, isOwnerCheck, isCollaboratorCheck, overridePhaseStatus, clearPhaseOverride,
-                    logoWhite, logoBlue
+                    logoWhite, logoBlue,
+                    dashboardWidgets, dashboardEditMode, widgetEditorOpen, editingWidget, getKpiColor, formatKpiValue, getKpiSubtext, openWidgetEditor, closeWidgetEditor, saveWidget, removeWidget, moveWidget, resetWidgetsToDefaults, computeKpiValue
                 };
             }
         }).mount('#app');
