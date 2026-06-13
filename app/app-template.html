@@ -1197,7 +1197,7 @@
                             </div>
                         </div>
 
-                        <button @click="saveChanges" :class="['px-8 py-3 rounded-custom text-sm font-bold uppercase tracking-wider text-white shadow-sm transition-all flex items-center gap-2', editingType === 'project' ? 'bg-[var(--cp-blue)] hover:bg-[var(--cp-blue-dark)]' : 'bg-indigo-600 hover:bg-indigo-700']">
+                        <button v-if="canEditProject" @click="saveChanges" :class="['px-8 py-3 rounded-custom text-sm font-bold uppercase tracking-wider text-white shadow-sm transition-all flex items-center gap-2', editingType === 'project' ? 'bg-[var(--cp-blue)] hover:bg-[var(--cp-blue-dark)]' : 'bg-indigo-600 hover:bg-indigo-700']">
                             <i class="fas fa-save"></i> Save Changes
                         </button>
                         <button @click="viewerOpen = false" class="text-slate-400 hover:text-red-500 p-2.5"><i class="fas fa-times text-2xl"></i></button>
@@ -1549,7 +1549,8 @@
                                                     <div class="flex gap-2 mb-2">
                                                         <button v-for="st in ['PENDING', 'IN PROGRESS', 'COMPLETED', 'STOPPED']" :key="st"
                                                                 @click="editingObject.stages[activeViewerStage].status = st; editingObject.stages[activeViewerStage].statusOverride = true"
-                                                                :class="['flex-1 py-2 rounded text-[0.65rem] font-bold border transition-all shadow-sm', editingObject.stages[activeViewerStage].status === st ? 'bg-blue-600 text-white border-blue-600 scale-105' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100']">
+                                                                :disabled="!canEditProject"
+                                                                :class="['flex-1 py-2 rounded text-[0.65rem] font-bold border transition-all shadow-sm', !canEditProject ? 'opacity-50 cursor-not-allowed' : '', editingObject.stages[activeViewerStage].status === st ? 'bg-blue-600 text-white border-blue-600 scale-105' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100']">
                                                             {{ st }}
                                                         </button>
                                                     </div>
@@ -1562,7 +1563,8 @@
                                                         </span>
                                                         <button v-if="editingObject.stages[activeViewerStage].statusOverride"
                                                                 @click="editingObject.stages[activeViewerStage].statusOverride = false; editingObject.stages[activeViewerStage].status = computePhaseStatus(editingObject.stages[activeViewerStage])"
-                                                                class="text-[0.6rem] font-bold text-slate-400 hover:text-emerald-600 transition-colors flex items-center gap-1">
+                                                                :disabled="!canEditProject"
+                                                                :class="['text-[0.6rem] font-bold transition-colors flex items-center gap-1', !canEditProject ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-emerald-600']">
                                                             <i class="fas fa-rotate-left text-[0.55rem]"></i> Reset Auto
                                                         </button>
                                                     </div>
@@ -1575,7 +1577,7 @@
                                     <div class="bg-white p-6 rounded-panel border border-slate-200 shadow-sm flex flex-col">
                                          <h4 class="text-xs font-bold text-slate-800 uppercase mb-5 flex justify-between items-center tracking-widest border-b border-slate-100 pb-2">
                                             <span><i class="fas fa-list-check mr-2 text-emerald-500"></i> Phase Tasks</span>
-                                            <button @click="addTask" class="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded transition-colors text-[0.65rem] font-bold shadow-sm" data-html2canvas-ignore><i class="fas fa-plus mr-1"></i> ADD TASK</button>
+                                            <button v-if="canEditProject" @click="addTask" class="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded transition-colors text-[0.65rem] font-bold shadow-sm" data-html2canvas-ignore><i class="fas fa-plus mr-1"></i> ADD TASK</button>
                                         </h4>
                                         
                                         <div class="space-y-4 pr-2" :id="'task-list-container'" ref="tasksSortableRef">
@@ -1584,8 +1586,8 @@
                                                 <!-- Top Row: Drag, Checkbox, Name, Delete -->
                                                 <div class="flex items-center gap-3 p-3 bg-slate-50/50 border-b border-slate-100">
                                                     <div class="drag-handle text-slate-300 hover:text-slate-500 px-1"><i class="fas fa-grip-vertical"></i></div>
-                                                    <input type="checkbox" v-model="task.done" class="rounded border-slate-300 text-blue-600 focus:ring-0 w-4 h-4 cursor-pointer">
-                                                    <input v-model="task.desc" class="flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-blue-200 rounded px-2 py-1" placeholder="Define task or deliverable...">
+                                                    <input type="checkbox" v-model="task.done" :disabled="!canEditProject" class="rounded border-slate-300 text-blue-600 focus:ring-0 w-4 h-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <input v-model="task.desc" :disabled="!canEditProject" class="flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-blue-200 rounded px-2 py-1 disabled:opacity-75" placeholder="Define task or deliverable...">
                                                     
                                                     <!-- Alert Toggle -->
                                                     <button @click="task.alert = !task.alert" :class="['p-2 rounded transition-all', task.alert ? 'text-red-500 bg-red-100 border border-red-200' : 'text-slate-400 hover:bg-slate-200 border border-transparent']" title="Toggle Alert Issue">

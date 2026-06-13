@@ -1584,6 +1584,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 // Auth methods extracted to useAuth()
 
+                const canEditProject = computed(() => {
+                    if (editingType.value === 'template') return true;
+                    if (!editingObject.value) return false;
+                    return isOwnerCheck(editingObject.value) || isCollaboratorCheck(editingObject.value);
+                });
+
                 // Called when the Project Owner confirms a manual override from the detail view.
                 const overridePhaseStatus = (stage, proj) => {
                     stage.statusOverride = true;
@@ -1792,7 +1798,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, formatGanttDuration, deleteTemplate, exportView,
-                    currentUserEmail, userInitials, computePhaseStatus, isOwnerCheck, isCollaboratorCheck, overridePhaseStatus, clearPhaseOverride,
+                    currentUserEmail, userInitials, computePhaseStatus, isOwnerCheck, isCollaboratorCheck, overridePhaseStatus, clearPhaseOverride, canEditProject,
                     quickSaveCycleStatus, toggleTaskAlert, triggerDriveUpload, handleFileInputUpload, driveFileInputRef,
                     logoWhite, logoBlue
                 };
