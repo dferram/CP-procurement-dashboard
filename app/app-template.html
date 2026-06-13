@@ -179,108 +179,148 @@
                                 </div>
                             </div>
 
-                            <!-- KPI Row — 6 cards -->
-                            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Active Projects</p>
-                                        <i class="fas fa-folder-open text-sm opacity-40" style="color:var(--cp-blue)"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black" style="color:var(--cp-blue)">{{ procurementStats.activeCount }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)"><i class="fas fa-archive mr-1 opacity-60"></i>{{ stats.archived }} archived</p>
+                            <!-- ── Dashboard Toolbar ── -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">
+                                        <i class="fas fa-th-large mr-1 opacity-60"></i>{{ dashboardWidgets.length }} widgets
+                                    </span>
                                 </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">% On Time</p>
-                                        <i class="fas fa-circle-check text-emerald-500 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black text-emerald-500">{{ procurementStats.pctOnTime }}<span class="text-base">%</span></h3>
-                                    <div class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
-                                        <div class="h-full rounded" style="background:#10b981;transition:width 0.5s" :style="{ width: procurementStats.pctOnTime + '%' }"></div>
-                                    </div>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Investment</p>
-                                        <i class="fas fa-dollar-sign text-amber-500 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-2xl font-black text-amber-600">{{ formatFinance(procurementStats.investment) }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ stats.onCostCount }} projects on-cost</p>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Savings / FTG</p>
-                                        <i class="fas fa-piggy-bank text-emerald-500 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-2xl font-black text-emerald-600">{{ formatFinance(procurementStats.savings) }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ stats.ftgCount }} projects FTG</p>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Open Alerts</p>
-                                        <i class="fas fa-triangle-exclamation text-red-400 opacity-40 text-sm"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black" :class="procurementStats.openAlerts > 0 ? 'text-red-500' : 'text-slate-300'">{{ procurementStats.openAlerts }}</h3>
-                                    <p class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">Unresolved task alerts</p>
-                                </div>
-                                <div class="cp-kpi p-5 flex flex-col gap-1.5">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">Avg Progress</p>
-                                        <i class="fas fa-chart-line opacity-40 text-sm" style="color:var(--cp-blue)"></i>
-                                    </div>
-                                    <h3 class="text-3xl font-black" style="color:var(--cp-blue)">{{ procurementStats.avgProgress }}<span class="text-base">%</span></h3>
-                                    <div class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
-                                        <div class="cp-progress-fill h-full" :style="{ width: procurementStats.avgProgress + '%' }"></div>
-                                    </div>
+                                <div class="flex items-center gap-2">
+                                    <button @click="dashboardEditMode = !dashboardEditMode"
+                                        :class="['flex items-center gap-1.5 px-3 py-1.5 rounded text-[0.7rem] font-bold transition-all border',
+                                            dashboardEditMode ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--cp-blue)] hover:text-[var(--cp-blue)]']">
+                                        <i :class="['fas text-[0.6rem]', dashboardEditMode ? 'fa-check' : 'fa-pen']"></i>
+                                        {{ dashboardEditMode ? 'Done' : 'Customize' }}
+                                    </button>
+                                    <button v-if="dashboardEditMode" @click="openWidgetEditor(null)"
+                                        class="flex items-center gap-1.5 px-3 py-1.5 rounded text-[0.7rem] font-bold bg-[var(--cp-blue)] text-white border border-transparent hover:opacity-90 transition-all">
+                                        <i class="fas fa-plus text-[0.55rem]"></i> Add Widget
+                                    </button>
+                                    <button v-if="dashboardEditMode" @click="resetWidgetsToDefaults"
+                                        class="flex items-center gap-1.5 px-3 py-1.5 rounded text-[0.7rem] font-bold bg-white border border-[var(--border)] hover:border-red-300 hover:text-red-500 transition-all" style="color:var(--text-muted)">
+                                        <i class="fas fa-rotate-left text-[0.55rem]"></i> Reset
+                                    </button>
                                 </div>
                             </div>
 
-                            <!-- Insights Chips -->
-                            <div v-if="insights.length" class="flex flex-wrap gap-2">
-                                <div v-for="(ins, i) in insights" :key="'ins-'+i"
-                                     :class="['flex items-center gap-2 px-3 py-1.5 rounded-full text-[0.68rem] font-bold border',
-                                         ins.type==='error'   ? 'bg-red-50 text-red-700 border-red-200' :
-                                         ins.type==='warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                         ins.type==='success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                'bg-blue-50 text-blue-700 border-blue-200']">
-                                    <i :class="['fas text-[0.6rem]',
-                                        ins.type==='error'   ? 'fa-circle-xmark' :
-                                        ins.type==='warning' ? 'fa-triangle-exclamation' :
-                                        ins.type==='success' ? 'fa-circle-check' : 'fa-circle-info']"></i>
-                                    {{ ins.text }}
-                                </div>
-                            </div>
+                            <!-- ── Dynamic Widget Grid (Portfolio & Single Project Mode) ── -->
 
-                            <!-- Charts — 2×2 grid -->
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-chart-pie mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.status }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartStatusRef"></canvas></div>
+                                <!-- KPI Widgets Row -->
+                                <div v-if="dashboardWidgets.filter(w => w.type === 'kpi').length" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                                    <div v-for="(widget, wIdx) in dashboardWidgets.filter(w => w.type === 'kpi')" :key="widget.id"
+                                         class="cp-kpi p-5 flex flex-col gap-1.5 relative group/widget">
+                                        <!-- Edit overlay -->
+                                        <div v-if="dashboardEditMode" class="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-panel z-10 flex items-center justify-center gap-1.5 opacity-0 group-hover/widget:opacity-100 transition-all">
+                                            <button @click="openWidgetEditor(widget.id)" class="w-7 h-7 rounded bg-white shadow-sm border border-slate-200 flex items-center justify-center text-[var(--cp-blue)] hover:bg-[var(--cp-blue-light)] transition-colors" title="Edit">
+                                                <i class="fas fa-pen text-[0.55rem]"></i>
+                                            </button>
+                                            <button @click="moveWidget(dashboardWidgets.indexOf(widget), -1)" class="w-7 h-7 rounded bg-white shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Left">
+                                                <i class="fas fa-chevron-left text-[0.55rem]"></i>
+                                            </button>
+                                            <button @click="moveWidget(dashboardWidgets.indexOf(widget), 1)" class="w-7 h-7 rounded bg-white shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Right">
+                                                <i class="fas fa-chevron-right text-[0.55rem]"></i>
+                                            </button>
+                                            <button @click="removeWidget(widget.id)" class="w-7 h-7 rounded bg-white shadow-sm border border-red-200 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Remove">
+                                                <i class="fas fa-trash-alt text-[0.55rem]"></i>
+                                            </button>
+                                        </div>
+                                        <!-- KPI content -->
+                                        <div class="flex items-center justify-between mb-1">
+                                            <p class="text-[0.6rem] font-black uppercase tracking-widest" style="color:var(--text-muted)">{{ widget.title }}</p>
+                                            <i :class="['fas', widget.config.icon || 'fa-chart-line', 'text-sm opacity-40']" :style="{ color: getKpiColor(widget.config.colorScheme).text }"></i>
+                                        </div>
+                                        <h3 class="text-3xl font-black" :style="{ color: getKpiColor(widget.config.colorScheme).text }">
+                                            {{ formatKpiValue(widget, computeKpiValue(widget)) }}
+                                        </h3>
+                                        <!-- Progress bar for percentage KPIs -->
+                                        <div v-if="widget.config.format === 'percentage'" class="cp-progress-bg h-1.5 overflow-hidden mt-auto">
+                                            <div class="h-full rounded" style="transition:width 0.5s" :style="{ width: computeKpiValue(widget) + '%', background: getKpiColor(widget.config.colorScheme).text }"></div>
+                                        </div>
+                                        <p v-else class="text-[0.6rem] font-semibold mt-auto" style="color:var(--text-muted)">{{ getKpiSubtext(widget) }}</p>
+                                    </div>
                                 </div>
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-folder-tree mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.budget }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartBudgetRef"></canvas></div>
-                                </div>
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-layer-group mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.phase }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartPhaseRef"></canvas></div>
-                                </div>
-                                <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col">
-                                    <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-users mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.owner }}</h4>
-                                    <div class="relative flex-1" style="min-height:220px"><canvas ref="chartOwnerRef"></canvas></div>
-                                </div>
-                            </div>
 
-                            <!-- 2.5 Progress per Project — full width -->
-                            <div class="bg-white rounded-panel border border-slate-200 shadow-sm p-5">
-                                <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)"><i class="fas fa-bars-progress mr-1.5" style="color:var(--cp-blue)"></i>{{ chartTitles.progress }}</h4>
-                                <div class="relative" :style="{ height: (filterProject !== 'ALL' ? Math.max(180, (selectedProjectObj?.stages?.length || 1) * 45 + 40) : Math.max(180, summaryProgressPerProject.length * 32 + 40)) + 'px' }">
-                                    <canvas ref="chartProgressRef"></canvas>
+                                <!-- Insights Chips -->
+                                <div v-if="insights.length" class="flex flex-wrap gap-2">
+                                    <div v-for="(ins, i) in insights" :key="'ins-'+i"
+                                         :class="['flex items-center gap-2 px-3 py-1.5 rounded-full text-[0.68rem] font-bold border',
+                                             ins.type==='error'   ? 'bg-red-50 text-red-700 border-red-200' :
+                                             ins.type==='warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                             ins.type==='success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                    'bg-blue-50 text-blue-700 border-blue-200']">
+                                        <i :class="['fas text-[0.6rem]',
+                                            ins.type==='error'   ? 'fa-circle-xmark' :
+                                            ins.type==='warning' ? 'fa-triangle-exclamation' :
+                                            ins.type==='success' ? 'fa-circle-check' : 'fa-circle-info']"></i>
+                                        {{ ins.text }}
+                                    </div>
                                 </div>
-                            </div>
+
+                                <!-- Chart Widgets Grid -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <template v-for="(widget, wIdx) in dashboardWidgets.filter(w => w.type === 'doughnut' || w.type === 'bar' || w.type === 'progress')" :key="widget.id">
+                                        <div :class="['bg-white rounded-panel border border-slate-200 shadow-sm p-5 flex flex-col relative group/widget', widget.size === 'large' ? 'lg:col-span-2' : '']">
+                                            <!-- Edit overlay for charts -->
+                                            <div v-if="dashboardEditMode" class="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-0 group-hover/widget:opacity-100 transition-all">
+                                                <button @click="openWidgetEditor(widget.id)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center text-[var(--cp-blue)] hover:bg-[var(--cp-blue-light)] transition-colors" title="Edit">
+                                                    <i class="fas fa-pen text-[0.55rem]"></i>
+                                                </button>
+                                                <button @click="moveWidget(dashboardWidgets.indexOf(widget), -1)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Up">
+                                                    <i class="fas fa-chevron-up text-[0.55rem]"></i>
+                                                </button>
+                                                <button @click="moveWidget(dashboardWidgets.indexOf(widget), 1)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors" style="color:var(--text-muted)" title="Move Down">
+                                                    <i class="fas fa-chevron-down text-[0.55rem]"></i>
+                                                </button>
+                                                <button @click="removeWidget(widget.id)" class="w-7 h-7 rounded bg-white/90 shadow-sm border border-red-200 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Remove">
+                                                    <i class="fas fa-trash-alt text-[0.55rem]"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Chart title -->
+                                            <h4 class="text-[0.62rem] font-black uppercase tracking-widest mb-4" style="color:var(--text-muted)">
+                                                <i class="fas fa-chart-bar mr-1.5" style="color:var(--cp-blue)"></i>{{ widget.title }}
+                                            </h4>
+                                            <!-- Progress bar widget type -->
+                                            <template v-if="widget.type === 'progress'">
+                                                <div class="flex-1 flex flex-col justify-center gap-3 py-2">
+                                                    <div class="flex justify-between text-[0.65rem] font-bold" style="color:var(--text-muted)">
+                                                        <span>Portfolio Average Progress</span>
+                                                        <span style="color:var(--cp-blue)">{{ computeKpiValue({config:{field:'progress'}}) }}%</span>
+                                                    </div>
+                                                    <div class="cp-progress-bg h-3 overflow-hidden">
+                                                        <div class="cp-progress-fill h-full transition-all duration-700" :style="{ width: computeKpiValue({config:{field:'progress'}}) + '%' }"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <!-- Chart canvas for doughnut/bar -->
+                                            <template v-else>
+                                                <div class="relative flex-1" :style="{ minHeight: widget.size === 'large' ? (Math.max(180, (summaryProgressPerProject.length || 1) * 32 + 40) + 'px') : '220px' }">
+                                                    <canvas :id="'widget-canvas-' + widget.id"></canvas>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Empty widget state -->
+                                <div v-if="dashboardWidgets.length === 0" class="text-center py-16">
+                                    <i class="fas fa-chart-line text-5xl mb-4 opacity-15" style="color:var(--cp-blue)"></i>
+                                    <p class="font-bold text-sm uppercase tracking-widest mb-2" style="color:var(--text-muted)">No widgets configured</p>
+                                    <p class="text-xs mb-5" style="color:var(--text-muted)">Add KPIs and charts to build your executive dashboard.</p>
+                                    <div class="flex items-center justify-center gap-3">
+                                        <button @click="openWidgetEditor(null)" class="btn-primary flex items-center gap-2">
+                                            <i class="fas fa-plus text-xs"></i> Add Widget
+                                        </button>
+                                        <button @click="resetWidgetsToDefaults" class="btn-secondary flex items-center gap-2">
+                                            <i class="fas fa-rotate-left text-xs"></i> Load Defaults
+                                        </button>
+                                    </div>
+                                </div>
+
 
                         </div>
                     </div>
+
 
                     <!-- ========================================== -->
                     <!-- VIEW: CONFIGURATION PANEL                  -->
@@ -1636,6 +1676,132 @@
                     <button @click="dialogConfirm"
                         :class="['px-5 py-2 text-sm font-bold rounded-custom text-white transition-colors', dialog.type === 'confirm' && dialog.message.toLowerCase().includes('delete') ? 'bg-red-500 hover:bg-red-600' : 'btn-primary']">
                         {{ dialog.type === 'alert' ? 'OK' : 'Confirm' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════ -->
+        <!-- WIDGET EDITOR MODAL                         -->
+        <!-- ════════════════════════════════════════════ -->
+        <div v-if="widgetEditorOpen" class="fixed inset-0 z-[60] flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="widgetEditorOpen = false"></div>
+            <div class="relative bg-white rounded-panel shadow-2xl w-full max-w-lg mx-4 overflow-hidden" style="border:1px solid var(--border)">
+                <!-- Header -->
+                <div class="px-6 py-4 flex items-center justify-between" style="background:var(--bg-main);border-bottom:1px solid var(--border)">
+                    <h3 class="text-sm font-bold flex items-center gap-2" style="color:var(--text-primary)">
+                        <i :class="['fas', editingWidgetId ? 'fa-pen' : 'fa-plus-circle']" style="color:var(--cp-blue)"></i>
+                        {{ editingWidgetId ? 'Edit Widget' : 'Add New Widget' }}
+                    </h3>
+                    <button @click="widgetEditorOpen = false" class="w-8 h-8 rounded flex items-center justify-center hover:bg-slate-200 transition-colors" style="color:var(--text-muted)">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+                <!-- Body -->
+                <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <!-- Widget Type -->
+                    <div>
+                        <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Widget Type</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button v-for="opt in widgetTypeOptions" :key="opt.value"
+                                @click="widgetForm.type = opt.value; if(opt.value==='kpi'){widgetForm.size='small';if(!widgetForm.config.field)widgetForm.config.field='active';if(!widgetForm.config.icon)widgetForm.config.icon='fa-chart-line';if(!widgetForm.config.format)widgetForm.config.format='number';if(!widgetForm.config.colorScheme)widgetForm.config.colorScheme='brand';}else{if(widgetForm.size==='small')widgetForm.size='medium';if(!widgetForm.config.groupBy)widgetForm.config.groupBy='cycleStatus';if(!widgetForm.config.colorScheme)widgetForm.config.colorScheme='status';}"
+                                :class="['flex flex-col items-center gap-1.5 p-3 rounded border text-center transition-all cursor-pointer',
+                                    widgetForm.type === opt.value ? 'border-[var(--cp-blue)] bg-[var(--cp-blue-light)] text-[var(--cp-blue)]' : 'border-[var(--border)] hover:border-slate-300']">
+                                <i :class="['fas text-lg', opt.icon]"></i>
+                                <span class="text-[0.6rem] font-bold">{{ opt.label }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Title -->
+                    <div>
+                        <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Title</label>
+                        <input v-model="widgetForm.title" type="text" class="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2.5 text-sm font-semibold outline-none focus:ring-1 focus:ring-[var(--cp-blue)] focus:border-[var(--cp-blue)]" placeholder="e.g. Active Projects">
+                    </div>
+
+                    <!-- Size -->
+                    <div>
+                        <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Size</label>
+                        <div class="flex gap-2">
+                            <button v-for="opt in widgetSizeOptions" :key="opt.value"
+                                @click="widgetForm.size = opt.value"
+                                :class="['px-4 py-2 rounded border text-[0.7rem] font-bold transition-all cursor-pointer',
+                                    widgetForm.size === opt.value ? 'border-[var(--cp-blue)] bg-[var(--cp-blue-light)] text-[var(--cp-blue)]' : 'border-[var(--border)] hover:border-slate-300']"
+                                :style="widgetForm.type === 'kpi' && opt.value !== 'small' ? 'opacity:0.4;pointer-events:none' : ''">
+                                {{ opt.label }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KPI-specific config -->
+                    <template v-if="widgetForm.type === 'kpi'">
+                        <div>
+                            <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Data Field</label>
+                            <select v-model="widgetForm.config.field" class="cp-select w-full shadow-sm">
+                                <option v-for="opt in kpiFieldOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Format</label>
+                                <select v-model="widgetForm.config.format" class="cp-select w-full shadow-sm">
+                                    <option value="number">Number</option>
+                                    <option value="percentage">Percentage (%)</option>
+                                    <option value="currency">Currency ($)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Color Scheme</label>
+                                <select v-model="widgetForm.config.colorScheme" class="cp-select w-full shadow-sm">
+                                    <option v-for="opt in colorSchemeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Icon</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button v-for="ic in kpiIconOptions" :key="ic"
+                                    @click="widgetForm.config.icon = ic"
+                                    :class="['w-9 h-9 rounded flex items-center justify-center border transition-all cursor-pointer',
+                                        widgetForm.config.icon === ic ? 'border-[var(--cp-blue)] bg-[var(--cp-blue-light)] text-[var(--cp-blue)]' : 'border-[var(--border)] hover:border-slate-300']"
+                                    :style="{color: widgetForm.config.icon !== ic ? 'var(--text-muted)' : ''}">
+                                    <i :class="['fas', ic]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Chart-specific config -->
+                    <template v-if="widgetForm.type === 'doughnut' || widgetForm.type === 'bar'">
+                        <div>
+                            <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Group By</label>
+                            <select v-model="widgetForm.config.groupBy" class="cp-select w-full shadow-sm">
+                                <option v-for="opt in groupByOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div v-if="widgetForm.type === 'bar'">
+                                <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Orientation</label>
+                                <select v-model="widgetForm.config.orientation" class="cp-select w-full shadow-sm">
+                                    <option value="horizontal">Horizontal</option>
+                                    <option value="vertical">Vertical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[0.62rem] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Color Scheme</label>
+                                <select v-model="widgetForm.config.colorScheme" class="cp-select w-full shadow-sm">
+                                    <option v-for="opt in colorSchemeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <!-- Footer -->
+                <div class="px-6 py-4 flex justify-end gap-3" style="border-top:1px solid var(--border);background:var(--bg-main)">
+                    <button @click="widgetEditorOpen = false" class="px-4 py-2 text-sm font-bold rounded transition-colors hover:bg-slate-200" style="color:var(--text-muted)">Cancel</button>
+                    <button @click="saveWidget" class="btn-primary flex items-center gap-2">
+                        <i :class="['fas text-xs', editingWidgetId ? 'fa-save' : 'fa-plus']"></i>
+                        {{ editingWidgetId ? 'Save Changes' : 'Add Widget' }}
                     </button>
                 </div>
             </div>
