@@ -68,8 +68,8 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
 
                 // ─── CONFIG STATE (loaded from GAS on mount) ──────────────
                 const config = ref({ cpTeam: [], externalTeam: [], suggestions: [] });
-                const newCpMember = ref({ name: '', email: '' });
-                const newExternalMember = ref({ name: '', email: '' });
+                const newCpMember = ref('');
+                const newExternalMember = ref('');
                 const newSuggestion = ref({ title: '', icon: 'fa-tasks' });
 
                 // ─── UI CONSTANTS ─────────────────────────────────────────
@@ -409,11 +409,23 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     if (typeof google === 'undefined' || !google.script) showToast("Mock Config Saved Successfully!");
                 };
 
-                const addTeamMember = (listKey, memberRef) => {
-                    if(memberRef.name.trim() !== '' && memberRef.email.trim() !== '') {
-                        config.value[listKey].push({ name: memberRef.name.trim(), email: memberRef.email.trim() });
-                        if(listKey==='cpTeam') newCpMember.value = { name: '', email: '' };
-                        if(listKey==='externalTeam') newExternalMember.value = { name: '', email: '' };
+                const addTeamMember = (listKey, inputStr) => {
+                    const val = (inputStr || '').trim();
+                    if (!val) return;
+                    
+                    if (listKey === 'cpTeam') {
+                        // Basic email to name extraction
+                        let namePart = val.split('@')[0];
+                        namePart = namePart.replace(/^bp_/, '');
+                        const parts = namePart.split(/[._-]/).filter(p => p.length > 0);
+                        const name = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+                        
+                        config.value.cpTeam.push({ name: name || val, email: val });
+                        newCpMember.value = '';
+                    } else {
+                        // External team are just strings (e.g. Suppliers)
+                        config.value.externalTeam.push(val);
+                        newExternalMember.value = '';
                     }
                 };
                 const removeTeamMember = (listKey, idx) => config.value[listKey].splice(idx, 1);

@@ -295,7 +295,7 @@
                                     <div>
                                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">CP Team (Internal)</label>
                                         <div class="flex items-center gap-2 mb-4">
-                                            <input v-model="newCpMember" @keyup.enter="addTeamMember('cpTeam', newCpMember)" placeholder="Add internal member..." class="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                            <input v-model="newCpMember" @keyup.enter="addTeamMember('cpTeam', newCpMember)" placeholder="Enter email address (e.g. john_doe@colpal.com)..." class="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500">
                                             <button @click="addTeamMember('cpTeam', newCpMember)" class="bg-blue-100 text-blue-600 px-3 py-2 rounded font-bold hover:bg-blue-200 transition-colors"><i class="fas fa-plus"></i></button>
                                         </div>
                                         <ul class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
@@ -303,7 +303,11 @@
                                                 <i class="fas fa-users opacity-40 mr-1.5"></i> No members added yet.
                                             </li>
                                             <li v-for="(member, idx) in config.cpTeam" :key="'cp-'+idx" class="flex justify-between items-center bg-white border border-slate-200 px-3 py-2 rounded shadow-sm text-sm font-semibold text-slate-700 group">
-                                                <span><i class="fas fa-user text-blue-300 mr-2"></i> {{ member }}</span>
+                                                <span class="flex items-center gap-2">
+                                                    <i class="fas fa-user text-blue-300"></i> 
+                                                    <span>{{ member.name || member }}</span>
+                                                    <span v-if="member.email" class="text-xs text-slate-400 font-normal ml-1">({{ member.email }})</span>
+                                                </span>
                                                 <button @click="removeTeamMember('cpTeam', idx)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i class="fas fa-trash-alt text-xs"></i></button>
                                             </li>
                                         </ul>
@@ -313,7 +317,7 @@
                                     <div>
                                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">External Team</label>
                                         <div class="flex items-center gap-2 mb-4">
-                                            <input v-model="newExternalMember" @keyup.enter="addTeamMember('externalTeam', newExternalMember)" placeholder="Add external member or agency..." class="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                            <input v-model="newExternalMember" @keyup.enter="addTeamMember('externalTeam', newExternalMember)" placeholder="Add external supplier name..." class="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-blue-500">
                                             <button @click="addTeamMember('externalTeam', newExternalMember)" class="bg-blue-100 text-blue-600 px-3 py-2 rounded font-bold hover:bg-blue-200 transition-colors"><i class="fas fa-plus"></i></button>
                                         </div>
                                         <ul class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
@@ -321,7 +325,11 @@
                                                 <i class="fas fa-users opacity-40 mr-1.5"></i> No members added yet.
                                             </li>
                                             <li v-for="(member, idx) in config.externalTeam" :key="'ext-'+idx" class="flex justify-between items-center bg-white border border-slate-200 px-3 py-2 rounded shadow-sm text-sm font-semibold text-slate-700 group">
-                                                <span><i class="fas fa-building text-orange-300 mr-2"></i> {{ member }}</span>
+                                                <span class="flex items-center gap-2">
+                                                    <i class="fas fa-building text-orange-300"></i> 
+                                                    <span>{{ member.name || member }}</span>
+                                                    <span v-if="member.email" class="text-xs text-slate-400 font-normal ml-1">({{ member.email }})</span>
+                                                </span>
                                                 <button @click="removeTeamMember('externalTeam', idx)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i class="fas fa-trash-alt text-xs"></i></button>
                                             </li>
                                         </ul>
@@ -1185,13 +1193,13 @@
                                 </div>
                                 
                                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Project Owner</label>
-                                    <select v-model="editingObject.projectOwner" :disabled="!isOwnerCheck(editingObject)" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all disabled:opacity-50">
+                                    <select v-model="editingObject.projectOwner" @change="(e) => { const u = [...config.cpTeam, ...config.externalTeam].find(x => (x.name || x) === editingObject.projectOwner); if(u && u.email) editingObject.ownerEmail = u.email; }" :disabled="!isOwnerCheck(editingObject)" class="w-full bg-slate-50 border border-slate-200 rounded-custom px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all disabled:opacity-50">
                                         <option value="">Select Manager...</option>
                                         <optgroup label="CP Team">
-                                            <option v-for="user in config.cpTeam" :key="user.name" :value="user.name">{{ user.name }}</option>
+                                            <option v-for="user in config.cpTeam" :key="user.name || user" :value="user.name || user">{{ user.name || user }}</option>
                                         </optgroup>
                                         <optgroup label="External Team">
-                                            <option v-for="user in config.externalTeam" :key="user.name" :value="user.name">{{ user.name }}</option>
+                                            <option v-for="user in config.externalTeam" :key="user.name || user" :value="user.name || user">{{ user.name || user }}</option>
                                         </optgroup>
                                     </select>
                                 </div>
@@ -1210,8 +1218,11 @@
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-2" v-if="isOwnerCheck(editingObject)">
-                                        <input type="email" id="new-collab-email" placeholder="Add collaborator email..." @keyup.enter="$event => { const v = $event.target.value.trim(); if(v) { editingObject.collaboratorEmails.push(v); $event.target.value = ''; } }" class="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:bg-white focus:border-[var(--cp-blue)]">
-                                        <button @click="(e) => { const i = document.getElementById('new-collab-email'); if(i.value.trim()) { editingObject.collaboratorEmails.push(i.value.trim()); i.value = ''; } }" class="btn-secondary h-[34px] px-3"><i class="fas fa-plus"></i></button>
+                                        <input type="email" id="new-collab-email" list="team-emails-list" placeholder="Search or type email..." @keyup.enter="$event => { const v = $event.target.value.trim(); if(v && !editingObject.collaboratorEmails.includes(v)) { editingObject.collaboratorEmails.push(v); $event.target.value = ''; } }" class="flex-1 bg-slate-50 border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:bg-white focus:border-[var(--cp-blue)]">
+                                        <datalist id="team-emails-list">
+                                            <option v-for="user in config.cpTeam" :key="'dl-cp-'+(user.email || user)" :value="user.email || user">{{ user.name || user }}</option>
+                                        </datalist>
+                                        <button @click="(e) => { const i = document.getElementById('new-collab-email'); const v = i.value.trim(); if(v && !editingObject.collaboratorEmails.includes(v)) { editingObject.collaboratorEmails.push(v); i.value = ''; } }" class="btn-secondary h-[34px] px-3"><i class="fas fa-plus"></i></button>
                                     </div>
                                 </div>
 
