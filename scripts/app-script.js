@@ -15,6 +15,15 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                 const isRefreshing = ref(false);
                 const isSaving = ref(false);
                 const currentUserEmail = ref('');
+                const userInitials = computed(() => {
+                    if(!currentUserEmail.value) return '';
+                    let namePart = currentUserEmail.value.split('@')[0];
+                    namePart = namePart.replace(/^bp_/, '');
+                    const parts = namePart.split(/[._-]/).filter(p => p.length > 0);
+                    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+                    if(namePart.length >= 2) return namePart.substring(0, 2).toUpperCase();
+                    return namePart.charAt(0).toUpperCase();
+                });
                 // ─── BRAND LOGOS (injected by index.html via GAS scriptlet) ──
                 const logoWhite = ref(typeof LOGO_WHITE_URL !== 'undefined' ? LOGO_WHITE_URL : '');
                 const logoBlue  = ref(typeof LOGO_BLUE_URL  !== 'undefined' ? LOGO_BLUE_URL  : '');
@@ -1389,7 +1398,7 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     isDriveLoading, driveDragActive, driveFiles, driveFolders, extractDriveId, fetchDriveContents, createDriveSubFolder, deleteDriveItem, handleDriveDrop, getFileIcon,
                     getStatusColor, getStatusCycleColor, viewProjectDetails, openProjectEditor, openTemplateEditor, silentSaveProject, confirmDeleteProject, createNewProject, createNewTemplate, saveChanges, fetchData, isRefreshing, isSaving, calculateFinance, formatFinance,
                     calculateProgress, getCurrentPhase, formatDate, addStage, addSuggestedStage, addTask, deleteStage, createProjectFromTemplate, toggleArchive, getGanttBarStyle, calculateDays, formatGanttDuration, deleteTemplate, exportView,
-                    currentUserEmail, computePhaseStatus, isOwnerCheck, isCollaboratorCheck, overridePhaseStatus, clearPhaseOverride,
+                    currentUserEmail, userInitials, computePhaseStatus, isOwnerCheck, isCollaboratorCheck, overridePhaseStatus, clearPhaseOverride,
                     quickSaveCycleStatus, toggleTaskAlert, triggerDriveUpload, handleFileInputUpload, driveFileInputRef,
                     logoWhite, logoBlue
                 };
