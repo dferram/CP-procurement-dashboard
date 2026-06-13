@@ -946,7 +946,7 @@
                                                         <i class="fas fa-robot text-[0.6rem] opacity-75"></i>
                                                         {{ selectedProject.stages[activeViewerStage].status }}
                                                     </span>
-                                                    <button v-if="isCurrentUserOwner(selectedProject)"
+                                                    <button v-if="isOwnerCheck(selectedProject)"
                                                             @click="selectedProject.stages[activeViewerStage].statusOverride = true"
                                                             class="text-[0.65rem] font-bold px-2.5 py-1 rounded border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
                                                             title="You are the Project Owner — manually override this phase status">
