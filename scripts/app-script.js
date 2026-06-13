@@ -865,9 +865,13 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30 * 864e5);
                         } else {
-                            const endBuffer = 3 * 864e5;
                             mn = new Date(Math.min(...ts));
-                            mx = new Date(Math.max(...ts) + endBuffer);
+                            mx = new Date(Math.max(...ts));
+                            if (mx.getTime() - mn.getTime() < 15 * 864e5) {
+                                mx = new Date(mn.getTime() + 15 * 864e5);
+                            } else {
+                                mx = new Date(mx.getTime() + 2 * 864e5); // Small buffer
+                            }
                         }
                     }
 
@@ -981,9 +985,13 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30*864e5);
                         } else {
-                            const endBuffer = 3 * 864e5;
                             mn = new Date(Math.min(...ts));
-                            mx = new Date(Math.max(...ts) + endBuffer);
+                            mx = new Date(Math.max(...ts));
+                            if (mx.getTime() - mn.getTime() < 15 * 864e5) {
+                                mx = new Date(mn.getTime() + 15 * 864e5);
+                            } else {
+                                mx = new Date(mx.getTime() + 2 * 864e5); // Small buffer
+                            }
                         }
                     }
 
@@ -1265,12 +1273,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     
                     if (ganttScale.value === 'weekly') {
                         const w = Math.max(1, Math.round(days / 7));
-                        return w + 'w';
+                        return w + (w === 1 ? ' week' : ' weeks');
                     } else if (ganttScale.value === 'monthly' || ganttScale.value === 'yearly') {
                         const m = Math.max(1, Math.round(days / 30));
-                        return m + 'm';
+                        return m + (m === 1 ? ' month' : ' months');
                     }
-                    return days + 'd';
+                    return days + (days === 1 ? ' day' : ' days');
                 };
 
                 const addStage = () => {

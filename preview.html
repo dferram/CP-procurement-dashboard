@@ -403,6 +403,17 @@
                     <div v-if="currentView === 'summary'" class="flex-1 overflow-y-auto p-8 custom-scrollbar">
                         <div class="max-w-screen-2xl mx-auto space-y-6">
 
+                            <!-- Empty State Banner -->
+                            <div v-if="stats.active === 0" class="bg-slate-50 border rounded-panel p-5 flex items-center gap-4 shadow-sm" style="border-color:var(--border)">
+                                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0" style="color:var(--cp-blue)">
+                                    <i class="fas fa-info-circle text-lg opacity-80"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-sm tracking-tight" style="color:var(--text-primary)">No active projects yet</h4>
+                                    <p class="text-[0.7rem] font-semibold" style="color:var(--text-muted)">Create a project from the Portfolio view to get started.</p>
+                                </div>
+                            </div>
+
                             <!-- KPI Row — 6 cards -->
                             <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                                 <div class="cp-kpi p-5 flex flex-col gap-1.5">
@@ -523,6 +534,9 @@
                                             <button @click="addTeamMember('cpTeam', newCpMember)" class="bg-blue-100 text-blue-600 px-3 py-2 rounded font-bold hover:bg-blue-200 transition-colors"><i class="fas fa-plus"></i></button>
                                         </div>
                                         <ul class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                            <li v-if="config.cpTeam.length === 0" class="text-[0.65rem] font-bold uppercase tracking-widest p-4 text-center border border-dashed rounded" style="color:var(--text-muted);border-color:var(--border)">
+                                                <i class="fas fa-users opacity-40 mr-1.5"></i> No members added yet.
+                                            </li>
                                             <li v-for="(member, idx) in config.cpTeam" :key="'cp-'+idx" class="flex justify-between items-center bg-white border border-slate-200 px-3 py-2 rounded shadow-sm text-sm font-semibold text-slate-700 group">
                                                 <span><i class="fas fa-user text-blue-300 mr-2"></i> {{ member }}</span>
                                                 <button @click="removeTeamMember('cpTeam', idx)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i class="fas fa-trash-alt text-xs"></i></button>
@@ -538,6 +552,9 @@
                                             <button @click="addTeamMember('externalTeam', newExternalMember)" class="bg-blue-100 text-blue-600 px-3 py-2 rounded font-bold hover:bg-blue-200 transition-colors"><i class="fas fa-plus"></i></button>
                                         </div>
                                         <ul class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                            <li v-if="config.externalTeam.length === 0" class="text-[0.65rem] font-bold uppercase tracking-widest p-4 text-center border border-dashed rounded" style="color:var(--text-muted);border-color:var(--border)">
+                                                <i class="fas fa-users opacity-40 mr-1.5"></i> No members added yet.
+                                            </li>
                                             <li v-for="(member, idx) in config.externalTeam" :key="'ext-'+idx" class="flex justify-between items-center bg-white border border-slate-200 px-3 py-2 rounded shadow-sm text-sm font-semibold text-slate-700 group">
                                                 <span><i class="fas fa-building text-orange-300 mr-2"></i> {{ member }}</span>
                                                 <button @click="removeTeamMember('externalTeam', idx)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i class="fas fa-trash-alt text-xs"></i></button>
@@ -601,17 +618,25 @@
                                 </div>
                             </div>
                             <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
-                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#D1FAE5;color:#059669"><i class="fas fa-arrow-trend-down"></i></div>
+                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#D1FAE5;color:#059669">
+                                    <i v-if="stats.ftgCount > 0" class="fas fa-arrow-trend-down"></i>
+                                    <i v-else class="fas fa-minus opacity-50"></i>
+                                </div>
                                 <div>
                                     <p class="text-[0.62rem] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-2" style="color:var(--text-muted)">Total FTG <span class="rounded px-1.5 py-0.5 text-[0.55rem]" style="background:#D1FAE5;color:#059669">{{ stats.ftgCount }}</span></p>
-                                    <p class="text-2xl font-black" style="color:#059669">{{ stats.ftgTotal }}</p>
+                                    <p v-if="stats.ftgCount > 0" class="text-2xl font-black" style="color:#059669">{{ stats.ftgTotal }}</p>
+                                    <p v-else class="text-2xl font-black" style="color:var(--text-muted)">—</p>
                                 </div>
                             </div>
                             <div class="cp-kpi p-5 flex items-center gap-4 shadow-sm">
-                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#FEF3C7;color:#D97706"><i class="fas fa-arrow-trend-up"></i></div>
+                                <div class="w-12 h-12 flex items-center justify-center text-xl shrink-0 rounded" style="background:#FEF3C7;color:#D97706">
+                                    <i v-if="stats.onCostCount > 0" class="fas fa-arrow-trend-up"></i>
+                                    <i v-else class="fas fa-minus opacity-50"></i>
+                                </div>
                                 <div>
                                     <p class="text-[0.62rem] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-2" style="color:var(--text-muted)">On Cost <span class="rounded px-1.5 py-0.5 text-[0.55rem]" style="background:#FEF3C7;color:#D97706">{{ stats.onCostCount }}</span></p>
-                                    <p class="text-2xl font-black" style="color:#D97706">+{{ stats.onCostTotal }}</p>
+                                    <p v-if="stats.onCostCount > 0" class="text-2xl font-black" style="color:#D97706">+{{ stats.onCostTotal }}</p>
+                                    <p v-else class="text-2xl font-black" style="color:var(--text-muted)">—</p>
                                 </div>
                             </div>
                         </div>
@@ -684,6 +709,11 @@
                                     <i class="fas fa-plus text-xs"></i> Create First Project
                                 </button>
                             </div>
+                            <div v-else-if="dashShowArchived && filteredProjects.length === 0" class="text-center py-24">
+                                <i class="fas fa-box-archive text-6xl mb-4 opacity-20" style="color:var(--cp-blue)"></i>
+                                <p class="font-bold text-sm uppercase tracking-widest mb-2" style="color:var(--text-muted)">No archived projects</p>
+                                <p class="text-xs mb-6" style="color:var(--text-muted)">Projects you archive will appear here.</p>
+                            </div>
                             <div v-else-if="filteredProjects.length === 0" class="text-center py-20" style="color:var(--text-muted)">
                                 <i class="fas fa-filter text-5xl mb-4 opacity-30"></i>
                                 <p class="font-semibold text-sm">No projects match the selected filters.</p>
@@ -697,6 +727,14 @@
                     <!-- ========================================== -->
                     <div v-if="currentView === 'database'" class="flex-1 overflow-y-auto px-8 pt-2 pb-8 custom-scrollbar">
                         <div class="max-w-screen-2xl mx-auto space-y-5">
+                            <div v-if="Object.keys(projectsByFolder).length === 0 || Object.values(projectsByFolder).every(f => f.length === 0)" class="text-center py-24">
+                                <i class="fas fa-folder-open text-6xl mb-4 opacity-20" style="color:var(--cp-blue)"></i>
+                                <p class="font-bold text-sm uppercase tracking-widest mb-2" style="color:var(--text-muted)">No folders found</p>
+                                <p class="text-xs mb-6" style="color:var(--text-muted)">Create a folder to start organizing your projects.</p>
+                                <button @click="createNewFolder" class="btn-secondary flex items-center gap-2 mx-auto border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 px-5 py-2.5 rounded shadow-sm text-xs font-bold uppercase">
+                                    <i class="fas fa-plus text-xs"></i> New Folder
+                                </button>
+                            </div>
                             <div v-for="(folderProjects, folderName) in projectsByFolder" :key="folderName">
                                 <div class="cp-folder-header px-6 py-4 flex flex-wrap items-center justify-between group gap-3">
                                     <div @click="toggleFolder(folderName)" class="flex items-center gap-3 cursor-pointer flex-1">
@@ -1067,8 +1105,19 @@
 
                 <div id="project-details-export" class="flex-1 flex overflow-hidden">
                     <template v-if="viewMode === 'workflow'">
-                        <div class="w-[300px] border-r border-slate-100 flex flex-col bg-slate-50/30 shrink-0">
-                            <div class="p-8 overflow-y-auto flex-1 custom-scrollbar">
+                        <div v-if="!selectedProject.stages || selectedProject.stages.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-10 bg-slate-50/50 w-full">
+                            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border" style="color:var(--cp-blue);border-color:var(--border)">
+                                <i class="fas fa-layer-group text-2xl opacity-50"></i>
+                            </div>
+                            <h4 class="text-sm font-bold tracking-widest uppercase mb-2" style="color:var(--text-primary)">No phases added</h4>
+                            <p class="text-[0.75rem] mb-6" style="color:var(--text-muted)">Start building your project timeline by adding phases.</p>
+                            <button @click="openProjectEditor(selectedProject)" class="btn-primary flex items-center gap-2">
+                                <i class="fas fa-plus text-xs"></i> New Phase
+                            </button>
+                        </div>
+                        <template v-else>
+                            <div class="w-[300px] border-r border-slate-100 flex flex-col bg-slate-50/30 shrink-0">
+                                <div class="p-8 overflow-y-auto flex-1 custom-scrollbar">
                                 <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Roadmap</p>
                                 <div class="space-y-4">
                                     <div v-for="(stage, idx) in selectedProject.stages" :key="idx" 
@@ -1205,12 +1254,15 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-if="!selectedProject.stages[activeViewerStage].tasks.length" class="text-center py-10 opacity-50">
-                                        <p class="text-sm font-bold text-slate-400 uppercase">No tasks listed for this phase.</p>
+                                    <div v-if="!selectedProject.stages[activeViewerStage].tasks.length" class="text-center py-10 border border-dashed rounded-panel bg-slate-50" style="border-color:var(--border)">
+                                        <i class="fas fa-list-check text-4xl mb-3 opacity-20" style="color:var(--cp-blue)"></i>
+                                        <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:var(--text-primary)">No tasks found</p>
+                                        <p class="text-[0.7rem]" style="color:var(--text-muted)">Tasks added to this phase will appear here.</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        </template>
                     </template>
 
 
@@ -2950,9 +3002,13 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30 * 864e5);
                         } else {
-                            const endBuffer = 3 * 864e5;
                             mn = new Date(Math.min(...ts));
-                            mx = new Date(Math.max(...ts) + endBuffer);
+                            mx = new Date(Math.max(...ts));
+                            if (mx.getTime() - mn.getTime() < 15 * 864e5) {
+                                mx = new Date(mn.getTime() + 15 * 864e5);
+                            } else {
+                                mx = new Date(mx.getTime() + 2 * 864e5); // Small buffer
+                            }
                         }
                     }
 
@@ -3066,9 +3122,13 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                             mn = new Date();
                             mx = new Date(mn.getTime() + 30*864e5);
                         } else {
-                            const endBuffer = 3 * 864e5;
                             mn = new Date(Math.min(...ts));
-                            mx = new Date(Math.max(...ts) + endBuffer);
+                            mx = new Date(Math.max(...ts));
+                            if (mx.getTime() - mn.getTime() < 15 * 864e5) {
+                                mx = new Date(mn.getTime() + 15 * 864e5);
+                            } else {
+                                mx = new Date(mx.getTime() + 2 * 864e5); // Small buffer
+                            }
                         }
                     }
 
@@ -3314,12 +3374,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     
                     if (ganttScale.value === 'weekly') {
                         const w = Math.max(1, Math.round(days / 7));
-                        return w + 'w';
+                        return w + (w === 1 ? ' week' : ' weeks');
                     } else if (ganttScale.value === 'monthly' || ganttScale.value === 'yearly') {
                         const m = Math.max(1, Math.round(days / 30));
-                        return m + 'm';
+                        return m + (m === 1 ? ' month' : ' months');
                     }
-                    return days + 'd';
+                    return days + (days === 1 ? ' day' : ' days');
                 };
 
                 const addStage = () => {
