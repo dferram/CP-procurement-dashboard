@@ -1055,6 +1055,12 @@ const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
                     ['status','budget','phase','owner','progress'].forEach(k => {
                         if (chartInstances[k]) { chartInstances[k].destroy(); chartInstances[k] = null; }
                     });
+                    Object.keys(chartInstances).forEach(k => {
+                        if (k.startsWith('sparkline_') && chartInstances[k]) {
+                            chartInstances[k].destroy();
+                            delete chartInstances[k];
+                        }
+                    });
                     // Destroy dynamic widget chart instances
                     Object.keys(widgetChartInstances).forEach(k => {
                         if (widgetChartInstances[k]) { widgetChartInstances[k].destroy(); delete widgetChartInstances[k]; }

@@ -1121,7 +1121,7 @@
                                         </div>
 
                                         <div v-if="isDriveLoading" class="flex justify-center items-center h-full">
-                                            <img src="<?= getLogoBlue() ?>" class="w-16 h-16 object-contain animate-pulse" alt="Loading" />
+                                            <img :src="logoBlue" class="w-16 h-16 object-contain animate-pulse" alt="Loading" />
                                         </div>
 
                                         <div v-else-if="!driveFiles.length && !driveFolders.length" class="text-center py-20 opacity-50 flex flex-col items-center justify-center h-full">
@@ -1172,7 +1172,7 @@
                 <!-- Editor Loading Overlay -->
                 <div v-if="isSaving" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-[100] flex items-center justify-center rounded-panel">
                     <div class="text-center flex flex-col items-center gap-4">
-                        <img src="<?= getLogoBlue() ?>" class="w-20 h-20 object-contain animate-pulse" alt="Saving" />
+                        <img :src="logoBlue" class="w-20 h-20 object-contain animate-pulse" alt="Saving" />
                         <p class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-muted)">Saving Configuration...</p>
                     </div>
                 </div>
@@ -1406,7 +1406,7 @@
                                 </div>
 
                                 <div v-if="isDriveLoading" class="flex justify-center py-10">
-                                    <img src="<?= getLogoBlue() ?>" class="w-12 h-12 object-contain animate-pulse" alt="Loading" />
+                                    <img :src="logoBlue" class="w-12 h-12 object-contain animate-pulse" alt="Loading" />
                                 </div>
 
                                 <div v-else-if="!driveFiles.length && !driveFolders.length" class="text-center py-16 opacity-50">
